@@ -1,0 +1,5 @@
+'Billing Document No.', 'Billing Date', 'Sales Order No',
+       'Sold-to Party', 'Sold-to-Party Name', 'Material',
+       'Material Description', 'Material Group', 'Plant',
+       'Plant Description', 'Plant Reg State', 'Net Value of Billing item',
+       'Quantity', 'Fiscal Year'
