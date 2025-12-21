@@ -35,6 +35,12 @@ class read_data():
         # Replace part of string - Material Description
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("HP DURAPOL ", ""))
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("-MS", ""))
+        
+        # Call Function Fetch CMR Data
+        df_cmr = read_data.fetch_cmr_data()
+        df = df.merge(df_cmr[["Sold-to Party", "Regional Office"]],on="Sold-to Party",how="left")
+        df["Regional Office"] = df["Regional Office"].fillna("Unknown")
+        
         return df
     
     def fetch_cmr_data():
