@@ -21,7 +21,7 @@ fig = px.sunburst(filtered_df,
                 values='Quantity',
                 title='Sales Distribution',
                 )
-st.plotly_chart(fig, width='content')
+st.plotly_chart(fig, width='stretch')
 
 # Display Dataframe
 st.dataframe(filtered_df)

@@ -36,3 +36,10 @@ class read_data():
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("HP DURAPOL ", ""))
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("-MS", ""))
         return df
+    
+    def fetch_cmr_data():
+        spreadsheet_url = "https://docs.google.com/spreadsheets/d/18sGa7-DQ0v0oHpMesTySUjr9Z4dh70hr4PUNm6t3uo0/"
+        worksheet_name = "CMRData"
+        df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+
+        return df
