@@ -9,12 +9,21 @@ st.session_state["Sales Data"] = df = read_data.fetch_sales_data()
 
 # Pages
 pages = {
-    "Dashboard": [
-        st.Page("pages/1_sales_dash.py", title="Sales"),
-
+    "Sales": [
+        st.Page("pages/1_home_dash.py", title="Home"),
+        st.Page("pages/2_sales_dash.py", title="Dashboard"),
     ],
-    "Others": [
-        st.Page("pages/2_cust_dash.py", title="Customer"),
+    "Customer": [
+        st.Page("pages/3_cust_dash.py", title="Master Record"),
+        st.Page("pages/4_cust_avg_price.py", title="Avg. Price"),
+    ],
+    "Inventory": [
+        st.Page("pages/5_inventory_dash.py", title="Inventory Record"),
+        
+    ],
+    "Finance": [
+        st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
+        
     ],
 }
 
