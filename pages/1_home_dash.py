@@ -36,7 +36,7 @@ for index, row in sum_by_group.iterrows():
             value=value_display
         )
 
-col1, col2,col3 = st.columns([1,1,2])
+col1, col2, col3 = st.columns([1,2,2], gap="small")
 with col1:
     fig = px.pie(ytd_df, values='Quantity',names = 'Regional Office', title="Region Volumes")
     fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
@@ -51,13 +51,29 @@ with col2:
     st.plotly_chart(fig)
 
 with col3:
+    fig = px.sunburst(ytd_df, 
+                    path=['Regional Office', 'Material Group','Material Description'], 
+                    values='Quantity',
+                    title='Sales Distribution',
+                    )
+    st.plotly_chart(fig, width='stretch')
+
+col1, col2 = st.columns([1,2])
+with col1:
+    fig = px.pie(ytd_df, values='Quantity',names = 'Plant Reg State', title="Plant Volumes")
+    fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(fig, width='stretch')
+
+with col2:
     fig = px.histogram(
     ytd_df.sort_values(by='Month'),
     x="Month",
     y="Quantity",
-    color="Regional Office",
+    # pattern_shape="Material Group",
+    color="Plant Reg State",
     title="Monthly Quantity",
-    barmode="group", # Groups the bars side-by-side
+    # barmode="group", # Groups the bars side-by-side
     category_orders={"Month": month_order},
     text_auto=True
     )
@@ -65,12 +81,12 @@ with col3:
     fig.update_layout(xaxis_title="",yaxis_title="")
     st.plotly_chart(fig, width='stretch')
 
-# YTD Metrics
+# MTD Metrics
 # mtd_df = ytd_df[df["Billing Date"].dt.month == 9]
 mtd_df = ytd_df[df["Month"]=="December"]
 
 # YTD Metrics
-st.markdown("## Sales Year-To-Date")
+st.markdown("## Sales Month-To-Date")
 total_quantity_sum = mtd_df['Quantity'].sum()/1000
 sum_by_group = mtd_df.groupby('Material Group')['Quantity'].sum().reset_index()
 cols = st.columns(len(sum_by_group)+1)
@@ -91,8 +107,7 @@ for index, row in sum_by_group.iterrows():
         )
 
 
-st.markdown("## Sales Month-To-Date")
-col1, col2 = st.columns([1,2])
+col1, col2, col3 = st.columns([1,1,2], gap="small")
 with col1:
     fig = px.pie(mtd_df, values='Quantity',names = 'Regional Office', title="Region Volumes")
     fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
@@ -100,15 +115,48 @@ with col1:
     st.plotly_chart(fig, width='stretch')
 
 with col2:
+    fig = px.histogram(mtd_df, x=['Regional Office'], y='Quantity',
+             color='Material Group', barmode='group',text_auto=True)
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
+    fig.update_layout(xaxis_title="",yaxis_title="")
+    st.plotly_chart(fig)
+
+with col3:
     fig = px.histogram(
     mtd_df, 
-    x='Material Description', 
+    x='Regional Office', 
     y='Quantity',
-    color='Material Group', 
+    color='Material Description', 
     barmode='group',
-    facet_col='Plant Reg State', # Creates a subplot for each region
+    # facet_col='Plant Reg State', # Creates a subplot for each region
     text_auto=True,
     title="Quantity by Material Description, Grouped by Region"
+    )
+    # fig = px.histogram(mtd_df, x=['Regional Office'], y='Quantity',
+    #         color='Material Group', barmode='group',text_auto=True)
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
+    fig.update_layout(xaxis_title="",yaxis_title="")
+    st.plotly_chart(fig)
+
+col1, col2 = st.columns([1,2], gap="small")
+
+
+with col1:
+    fig = px.pie(mtd_df, values='Quantity',names = 'Plant Reg State', title="Plant Volumes")
+    fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(fig, width='stretch')
+
+with col2:
+    fig = px.histogram(
+    mtd_df, 
+    x='Plant Reg State', 
+    y='Quantity',
+    color='Material Description', 
+    barmode='group',
+    # facet_col='Plant Reg State', # Creates a subplot for each region
+    text_auto=True,
+    title="Quantity by Material Description, Grouped by Plant"
     )
     # fig = px.histogram(mtd_df, x=['Regional Office'], y='Quantity',
     #         color='Material Group', barmode='group',text_auto=True)

@@ -9,3 +9,12 @@
 To Do
 1. Start Pages
 2. Dashboard Graphs
+
+"""
+with col2:
+    fig = px.histogram(ytd_df, x=['Plant Reg State'], y='Quantity',
+             color='Material Group', barmode='group',text_auto=True)
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
+    fig.update_layout(xaxis_title="",yaxis_title="")
+    st.plotly_chart(fig)
+"""
