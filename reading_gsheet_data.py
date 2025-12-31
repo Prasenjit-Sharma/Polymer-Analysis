@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
-
-
 class read_data():
     
     @staticmethod
@@ -49,3 +47,4 @@ class read_data():
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
 
         return df
+    

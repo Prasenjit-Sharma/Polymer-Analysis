@@ -85,7 +85,7 @@ with col2:
 # mtd_df = ytd_df[df["Billing Date"].dt.month == 9]
 mtd_df = ytd_df[df["Month"]=="December"]
 
-# YTD Metrics
+
 st.markdown("## Sales Month-To-Date")
 total_quantity_sum = mtd_df['Quantity'].sum()/1000
 sum_by_group = mtd_df.groupby('Material Group')['Quantity'].sum().reset_index()
@@ -171,7 +171,7 @@ quantity_pivot = pd.pivot_table(
     values='Quantity', 
     index=['Regional Office','Sold-to-Party Name'], # Index can include multiple columns
     columns=['Material Group', 'Material Description'], 
-    aggfunc=np.sum, 
+    aggfunc='sum', 
     fill_value=0, # Replace NaN values (where a customer didn't buy a material) with 0
     margins=True, # This adds the 'All' column (the total quantity across all materials)
     margins_name='Total Quantity' # Renames the 'All' column to 'Total Quantity'

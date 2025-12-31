@@ -22,6 +22,7 @@ pages = {
         
     ],
     "Finance": [
+        st.Page("pages/7_fin_scheme_input.py", title="Input Monthly Schemes"),
         st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
         
     ],

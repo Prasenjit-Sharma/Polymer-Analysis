@@ -18,3 +18,18 @@ with col2:
     fig.update_layout(xaxis_title="",yaxis_title="")
     st.plotly_chart(fig)
 """
+def view_discounts():
+    # Read json file from google drive
+    existing_json = discount.read_json_from_drive()
+    discount.display_discounts_expander(existing_json)
+    # st.code(existing_json, language="json")
+
+col1, col2, col3, col4 = st.columns(4)
+
+# View Discounts
+with col1:
+    st.button("View Discounts", on_click=view_discounts)
+    
+
+with col2:
+    if st.button("Add New Discount"):
