@@ -1,10 +1,17 @@
-'Billing Document No.', 'Billing Date', 'Sales Order No',
+sales_df = 'Billing Document No.', 'Ship-to Party', 'Sales Order No',
        'Sold-to Party', 'Sold-to-Party Name', 'Material',
        'Material Description', 'Material Group', 'Plant',
        'Plant Description', 'Plant Reg State', 'Net Value of Billing item',
-       'Quantity', 'Fiscal Year'
+       'Quantity', 'Fiscal Year','Sold-to Group'
 
+mou_df = 'Sold-to Party', 'Sold-to-Party Name','MOU Start Date','MOU End Date','PP','PE'
 
+group_df = 'Sold-to Party', 'Sold-to-Party Name','Sold-to Group'
+
+filtered_df = 'Billing Document No.', 'Billing Date', 'Ship-to Party', 'Sold-to Party', 
+'Sold-to-Party Name', 'Material', 'Material Description', 'Material Group', 'Plant', 
+'Plant Description', 'Plant Reg State', 'Net Value of Billing item', 'Quantity', 
+'Fiscal Year', 'Year', 'Month', 'Regional Office', 'Sold-to Group'
 
 To Do
 1. Start Pages

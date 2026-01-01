@@ -6,6 +6,8 @@ from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.http import MediaInMemoryUpload
 import streamlit as st
 import pandas as pd
+from calendar import monthrange
+from st_aggrid import AgGrid, GridOptionsBuilder
 
 class discount():
 
@@ -255,3 +257,151 @@ class discount():
                 df["Total Credit Note"] += df["Freight Discount Amount"]
                 df["Total Discount"] += df["Freight Discount Amount"]
         return df
+    
+    @staticmethod
+    def build_mou_summary(sales_df: pd.DataFrame,selected_year: int,selected_month: int):
+        # Read data
+        mou = st.session_state["MOU Data"]
+        group_df = st.session_state["Group Data"]
+        cmr_df = st.session_state["CMR Data"]
+
+        # Month Boundaries
+        month_start = pd.Timestamp(selected_year, selected_month, 1)
+        month_end = pd.Timestamp(
+            selected_year,
+            selected_month,
+            monthrange(selected_year, selected_month)[1]
+        )
+        
+        sales_period = sales_df[
+        (sales_df["Billing Date"] >= month_start) &
+        (sales_df["Billing Date"] <= month_end)
+    ]
+        # Aggregate Sales Volume
+        sales_agg = (
+        sales_period
+        .groupby(["Sold-to Group", "Regional Office","Material Group"], as_index=False)
+        .agg({"Quantity": "sum"})
+    )
+
+        pp_volume = (
+            sales_agg[sales_agg["Material Group"] == "PP"]
+            .groupby(["Sold-to Group", "Regional Office"], as_index=False)
+            .agg({"Quantity": "sum"})
+            .rename(columns={"Quantity": "Total Volume PP"})
+        )
+
+        pe_volume = (
+            sales_agg[sales_agg["Material Group"].isin(["LLDPE", "HDPE"])]
+            .groupby(["Sold-to Group", "Regional Office"], as_index=False)
+            .agg({"Quantity": "sum"})
+            .rename(columns={"Quantity": "Total Volume PE"})
+        )
+
+        # Create base frame from SALES (critical fix)
+        base_df = (
+            pd.merge(
+                pp_volume,
+                pe_volume,
+                on=["Sold-to Group", "Regional Office"],
+                how="outer"
+            )
+        )
+
+        # Prepare MOU Data
+        mou["MOU Start Date"] = pd.to_datetime(mou["MOU Start Date"])
+        mou["MOU End Date"] = pd.to_datetime(mou["MOU End Date"])
+
+        mou_active = mou[
+            (mou["MOU Start Date"] <= month_end) &
+            (mou["MOU End Date"] >= month_start)
+        ]
+
+        # mou_active["Sold-to Party"] = mou_active["Sold-to Party"].astype(str)
+
+        mou_active = mou_active.merge(
+            group_df[["Sold-to Party", "Sold-to Group"]],
+            on="Sold-to Party",
+            how="left"
+        )
+
+        mou_active["Sold-to Group"] = mou_active["Sold-to Group"].fillna(
+            mou_active["Sold-to-Party Name"]
+        )
+
+        # Rename specific columns
+        mou_active = mou_active.rename(columns={"PP": "MOU PP", "PE": "MOU PE"})
+       
+        final_df = base_df.merge(
+        mou_active,
+        on="Sold-to Group",
+        how="left"
+    )
+
+
+        # Drop Columns
+        final_df = final_df.drop(['Sold-to Party', 'Sold-to-Party Name','MOU Start Date','MOU End Date'], axis=1)
+
+        # Fill missing values
+        final_df["MOU PP"] = final_df["MOU PP"].fillna(0)
+        final_df["Total Volume PP"] = final_df.get("Total Volume PP", 0).fillna(0)
+        final_df["MOU PE"] = final_df["MOU PE"].fillna(0)   
+        final_df["Total Volume PE"] = final_df.get("Total Volume PE", 0).fillna(0)
+
+        # Check MOU Group - we need cust group
+        return final_df
+    
+    # Group Columns
+    def prepare_group_pivot(filtered_df: pd.DataFrame) -> pd.DataFrame:
+        df = filtered_df.copy()
+
+        df["Quantity"] = pd.to_numeric(df["Quantity"], errors="coerce").fillna(0)
+
+        group_cols = [
+            "Regional Office",
+            "Sold-to Group",
+            "Sold-to-Party Name",
+            "Material Group",
+            "Material Description",
+        ]
+
+        for col in group_cols:
+            df[col] = df[col].fillna("UNKNOWN").astype(str)
+
+        return (
+            df.groupby(group_cols, as_index=False)
+            .agg({"Quantity": "sum"})
+        )
+
+    # Excel view of Group Pivot
+    def render_excel_pivot(filtered_df: pd.DataFrame):
+
+        df = discount.prepare_group_pivot(filtered_df)
+
+        gb = GridOptionsBuilder.from_dataframe(df)
+
+        gb.configure_default_column(
+            enableRowGroup=True,
+            enablePivot=False,
+            enableValue=True,
+            resizable=True
+        )
+
+        gb.configure_column("Quantity", aggFunc="sum")
+
+        gb.configure_grid_options(
+            rowGroupPanelShow="always",
+            groupDefaultExpanded=1,
+            animateRows=True
+        )
+
+        grid_options = gb.build()
+
+        AgGrid(
+            df,
+            gridOptions=grid_options,
+            height=600,
+            theme="balham",
+            enable_enterprise_modules=True,
+            fit_columns_on_grid_load=True,
+        )

@@ -25,6 +25,9 @@ class read_data():
         df = df.dropna(subset=["Billing Date"])
         df = df.loc[:, ~df.columns.str.contains("Unnamed")]
 
+        # Keeping Customer ID as string
+        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
+
         # Convert Net Billing with commas to Float
         df["Net Value of Billing item"] = (
             df["Net Value of Billing item"]
@@ -44,13 +47,41 @@ class read_data():
         df_cmr = read_data.fetch_cmr_data()
         df = df.merge(df_cmr[["Sold-to Party", "Regional Office"]],on="Sold-to Party",how="left")
         df["Regional Office"] = df["Regional Office"].fillna("Unknown")
-        
+
+        # Call Function Customer Group
+        df_group = read_data.fetch_group_data()
+        df = df.merge(df_group[["Sold-to Party", "Sold-to Group"]],on="Sold-to Party",how="left")
+        df["Sold-to Group"] = df["Sold-to Group"].fillna(df["Sold-to-Party Name"])
+
         return df
     
     def fetch_cmr_data():
         spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
         worksheet_name = st.secrets["file_address"]["WORKSHEET_CMR"]
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+        # Keeping Customer ID as string
+        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
 
         return df
     
+    def fetch_group_data():
+        spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
+        worksheet_name = st.secrets["file_address"]["WORKSHEET_GROUP"]
+        df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+
+        # Keeping Customer ID as string
+        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
+
+        return df
+    
+    def fetch_mou_data():
+        spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
+        worksheet_name = st.secrets["file_address"]["WORKSHEET_MOU"]
+        df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+        # Blank cells as 0
+        df["PP"] = df["PP"].fillna(0)
+        df["PE"] = df["PE"].fillna(0)
+        # Keeping Customer ID as string
+        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
+
+        return df

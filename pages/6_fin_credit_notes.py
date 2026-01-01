@@ -91,3 +91,8 @@ else:
     df_with_discount = discount.apply_discount(filtered_df,monthly_discounts)
 
     st.write(df_with_discount.head())
+
+    discount.render_excel_pivot(filtered_df)
+    
+    sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
+    st.write(sales_agg)

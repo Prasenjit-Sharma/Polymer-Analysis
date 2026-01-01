@@ -340,6 +340,8 @@ with tab_add:
                 "high_dist_value": high_dist_value,
                 "discount_amount": discount_amount
             }
+
+
     # Price Change
     elif discount_option == "Price Change":
             st.subheader("Early Bird Discount")
