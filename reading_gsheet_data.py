@@ -21,8 +21,10 @@ class read_data():
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
 
         #Data Cleaning
-        #Remove Blank Rows
+        #Remove Blank Rows and Columns
         df = df.dropna(subset=["Billing Date"])
+        df = df.loc[:, ~df.columns.str.contains("Unnamed")]
+
         # Convert Net Billing with commas to Float
         df["Net Value of Billing item"] = (
             df["Net Value of Billing item"]
@@ -31,6 +33,8 @@ class read_data():
         )
         # Convert Date to Datetime
         df["Billing Date"] = pd.to_datetime(df["Billing Date"],dayfirst=True, format="mixed")
+        df["Year"] = df["Billing Date"].dt.year
+        df["Month"] = df["Billing Date"].dt.month
 
         # Replace part of string - Material Description
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("HP DURAPOL ", ""))

@@ -6,6 +6,10 @@ from discount_calc import discount
 from datetime import date
 from streamlit_calendar import calendar
 
+DISCOUNT_OPTIONS = ["MOU Discount", "Cash Discount", "Freight Discount","Early Bird",
+                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme",
+                        "Price Protection", "Price Change"]
+
 DISCOUNT_COLORS = {
     "MOU": "#1f77b4",
     "Cash Discount": "#2ca02c",
@@ -72,6 +76,14 @@ calendar_options = {
     "selectable": False,
     "height": "auto"
 }
+
+# FRAGMENT (NO RELOAD ON SCROLL)
+@st.fragment
+def render_calendar(events):
+    calendar(
+        events=events,
+        options=calendar_options
+    )
 
 # Function for selecting record
 def select_discount_record(existing_json, key_prefix: str):
@@ -175,7 +187,7 @@ tab_view, tab_add, tab_modify, tab_delete = st.tabs(
 with tab_view:
     st.markdown("### Discount Calendar View")
 
-    existing_json = discount.read_json_from_drive()
+    existing_json = st.session_state["Discount Data"] 
     col1, col2 = st.columns([2, 3])
 
     with col1:
@@ -198,18 +210,11 @@ with tab_view:
         st.info("No discount schemes configured.")
     else:
         events = discounts_to_calendar_events(existing_json,selected_groups, selected_discount_types)
-
-        calendar(
-            events=events,
-            options=calendar_options
-        )
+        render_calendar(events)
 
 # Add New Discounts
 with tab_add:
     st.markdown("### Add New Discount")
-    options_list = ["MOU", "Cash Discount", "Location Discount","Early Bird",
-                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme",
-                        "Price Protection", "Price Change"]
     
     # Material Group Options
     material_group = st.multiselect(
@@ -224,14 +229,14 @@ with tab_add:
     # Discount options
     discount_option = st.selectbox(
             "Discount Option",
-            options_list,
+            DISCOUNT_OPTIONS,
             index=None,
             placeholder="Select a Discount Type",
             # accept_new_options=True,
         )
 
     # MOU Discount
-    if discount_option == "MOU":
+    if discount_option == "MOU Discount":
             st.subheader("MOU Discount")
             col1, col2 = st.columns(2)
             with col1:
@@ -292,6 +297,26 @@ with tab_add:
                 "discount_amount": discount_amount,
             }
 
+    # Price Protection
+    elif discount_option == "Price Protection":
+            st.subheader("Price Protection")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Discount Start Date")
+            with col2:
+                end_date = st.date_input("Discount End Date")
+            with col1:
+                discount_amount = st.number_input("Enter Price Protection Amount")
+            
+            data_to_save = {
+                "material_groups": material_group,
+                "discount_type": discount_option,
+                "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+                "discount_amount": discount_amount,
+            }
+
+    
     # Price Change
     elif discount_option == "Price Change":
             st.subheader("Early Bird Discount")

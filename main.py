@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 from reading_gsheet_data import read_data
+from discount_calc import discount
 
 st.set_page_config(layout="wide") 
 
-# Read Sales Data
+# Read Sales & Discount Data
 st.session_state["Sales Data"] = df = read_data.fetch_sales_data()
+st.session_state["Discount Data"] = discount.read_json_from_drive()
 
 # Pages
 pages = {
@@ -22,7 +24,7 @@ pages = {
         
     ],
     "Finance": [
-        st.Page("pages/7_fin_scheme_input.py", title="Input Monthly Schemes"),
+        st.Page("pages/7_fin_scheme_input.py", title="Monthly Schemes"),
         st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
         
     ],

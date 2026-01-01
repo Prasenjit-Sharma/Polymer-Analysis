@@ -10,40 +10,26 @@ To Do
 1. Start Pages
 2. Dashboard Graphs
 
-"""
-with col2:
-    fig = px.histogram(ytd_df, x=['Plant Reg State'], y='Quantity',
-             color='Material Group', barmode='group',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="")
-    st.plotly_chart(fig)
-"""
-def view_discounts():
-    # Read json file from google drive
-    existing_json = discount.read_json_from_drive()
-    discount.display_discounts_expander(existing_json)
-    # st.code(existing_json, language="json")
-
-col1, col2, col3, col4 = st.columns(4)
-
-# View Discounts
-with col1:
-    st.button("View Discounts", on_click=view_discounts)
-    
-
-with col2:
-    if st.button("Add New Discount"):
-
-st.markdown("### Existing Discount Schemes")
-    start, end = date_range_selector("view")
-    try:
-        existing_json = discount.read_json_from_drive()
-        filtered_json = filter_discounts_by_date(existing_json, start, end)
-
-        if not existing_json:
-            st.info("No discount schemes found in the selected date range.")
-        else:
-            discount.display_discounts_expander(filtered_json)
-
-    except Exception as e:
-        st.error(f"Failed to load discounts: {e}")
+# X-Y Scheme
+    elif discount_option == "X-Y Scheme":
+            st.subheader("X-Y Scheme")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Discount Start Date")
+            with col2:
+                end_date = st.date_input("Discount End Date")
+            with col1:
+                x_scheme_value = st.number_input("Enter X-Scheme Amount")
+            with col1:
+                y_scheme_value = st.number_input("Enter MOU Annual Component")
+            
+            discount_amount = max(x_scheme_value,y_scheme_value)
+            data_to_save = {
+                "material_groups": material_group,
+                "discount_type": discount_option,
+                "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+                "monthly_component": month_mou_value,
+                "annual_component": annual_mou_value,
+                "discount_amount": discount_amount
+            }

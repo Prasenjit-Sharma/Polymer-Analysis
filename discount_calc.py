@@ -79,11 +79,135 @@ class discount():
         ).execute()
 
     @staticmethod
-    def display_discounts_expander(discount_json: dict):
-        for discount_type, records in discount_json.items():
-            with st.expander(f"{discount_type} ({len(records)} record(s))"):
-                for i, record in enumerate(records, start=1):
-                    # st.markdown(f"**Version {i}**")
-                    cols = st.columns(len(record))
-                    for col, (k, v) in zip(cols, record.items()):
-                        col.metric(label=k.replace("_", " ").title(), value=v)
+    def apply_discount(filtered_df: pd.DataFrame, monthly_discounts: dict):
+        df = filtered_df.copy()
+        df["Total Credit Note"] = 0.0
+        df["Total Discount"] = 0.0
+
+        # if "Cash Discount" in monthly_discounts:
+          
+        #     discounts = monthly_discounts["Cash Discount"]
+        #     for disc in discounts:
+        #         discount_amount = disc.get("discount_amount", 0.0)
+        #         material_groups = disc.get("material_groups", [])
+
+        #         # Normalize material groups (safety)
+        #         if isinstance(material_groups, str):
+        #             material_groups = [material_groups]
+
+        #         # Parse discount validity dates
+        #         disc_start = pd.to_datetime(disc["start_date"])
+        #         disc_end = pd.to_datetime(disc["end_date"])
+
+        #         # Build combined eligibility mask
+        #         mask = (
+        #             df["Material Group"].isin(material_groups) &
+        #             (df["Billing Date"] >= disc_start) &
+        #             (df["Billing Date"] <= disc_end)
+        #         )
+        #         df.loc[mask, "Cash Discount"] = (
+        #             discount_amount
+        #         )
+        #         df.loc[mask, "Cash Discount Amount"] = (
+        #             df.loc[mask, "Quantity"] * discount_amount
+        #         )
+        #         df["Total Credit Note"] += df["Cash Discount Amount"]
+        #         df["Total Discount"] += df["Cash Discount Amount"]
+
+        if "MOU Discount" in monthly_discounts:
+            
+            discounts = monthly_discounts["MOU Discount"]
+            for disc in discounts:
+                month_discount_amount = disc.get("monthly_component", 0.0)
+                annual_discount_amount = disc.get("annual_component", 0.0)
+                material_groups = disc.get("material_groups", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+
+                # Build combined eligibility mask
+                mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+                df.loc[mask, "Month MOU Discount"] = (
+                    month_discount_amount
+                )
+                df.loc[mask, "Month MOU Discount Amount"] = (
+                    df.loc[mask, "Quantity"] * month_discount_amount
+                )
+                df.loc[mask, "Annual MOU Discount"] = (
+                    month_discount_amount
+                )
+                df.loc[mask, "Annual MOU Discount Amount"] = (
+                    df.loc[mask, "Quantity"] * month_discount_amount
+                )
+                df["Total Credit Note"] += df["Month MOU Discount Amount"]
+                df["Total Discount"] += df["Month MOU Discount Amount"] + df["Annual MOU Discount Amount"]
+        
+        if "Early Bird" in monthly_discounts:
+            
+            discounts = monthly_discounts["Early Bird Discount"]
+            for disc in discounts:
+                discount_amount = disc.get("discount_amount", 0.0)
+                material_groups = disc.get("material_groups", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+
+                # Build combined eligibility mask
+                mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+
+                df.loc[mask, "Early Bird Discount"] = (
+                    discount_amount
+                )
+                df.loc[mask, "Early Bird Amount"] = (
+                    df.loc[mask, "Quantity"] * discount_amount
+                )
+                df["Total Credit Note"] += df["Early Bird Amount"]
+                df["Total Discount"] += df["Early Bird Amount"]
+
+        if "Price Protection" in monthly_discounts:
+            
+            discounts = monthly_discounts["Price Protection Discount"]
+            for disc in discounts:
+                discount_amount = disc.get("discount_amount", 0.0)
+                material_groups = disc.get("material_groups", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+
+                # Build combined eligibility mask
+                mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+
+                df.loc[mask, "Price Protection"] = (
+                    discount_amount
+                )
+                df.loc[mask, "Price Protection Amount"] = (
+                    df.loc[mask, "Quantity"] * discount_amount
+                )
+                df["Total Credit Note"] += df["Price Protection Amount"]
+                df["Total Discount"] += df["Price Protection Amount"]
+        
+        return df
