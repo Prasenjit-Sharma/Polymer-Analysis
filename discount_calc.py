@@ -210,4 +210,48 @@ class discount():
                 df["Total Credit Note"] += df["Price Protection Amount"]
                 df["Total Discount"] += df["Price Protection Amount"]
         
+        if "Freight Discount" in monthly_discounts:
+            
+            discounts = monthly_discounts["Freight Discount"]
+            cmr_df = st.session_state["CMR Data"]
+            # Merge distance into sales
+            df = df.merge(
+                cmr_df[["Ship-to Party", "Warehouse Distance"]],
+                on="Ship-to Party",
+                how="left"
+            )
+
+            if df["Warehouse Distance"].isna().any():
+                missing = df[df["Warehouse Distance"].isna()]["Ship-to Party"].unique()
+                raise ValueError(f"Missing distance for Ship-to Party: {missing}")
+            
+            for disc in discounts:
+                less_dist_value = disc.get("less_dist_value", 0.0)
+                high_dist_value = disc.get("high_dist_value", 0.0)
+                material_groups = disc.get("material_groups", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+
+                # Build combined eligibility mask
+                mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+
+                df.loc[mask, "Freight Discount"] = df.loc[mask, "Warehouse Distance"].apply(
+                    lambda d: less_dist_value if pd.notna(d) and d <= 100 else high_dist_value)
+                
+                df.loc[mask, "Freight Discount Amount"] = (
+                    df.loc[mask, "Quantity"] * df.loc[mask, "Freight Discount"]
+                )
+
+                df = df.drop("Warehouse Distance", axis=1)
+                df["Total Credit Note"] += df["Freight Discount Amount"]
+                df["Total Discount"] += df["Freight Discount Amount"]
         return df

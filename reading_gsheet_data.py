@@ -16,8 +16,8 @@ class read_data():
     @staticmethod
     @st.cache_data
     def fetch_sales_data():
-        spreadsheet_url = "https://docs.google.com/spreadsheets/d/18sGa7-DQ0v0oHpMesTySUjr9Z4dh70hr4PUNm6t3uo0/"
-        worksheet_name = "RawSales"
+        spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
+        worksheet_name = st.secrets["file_address"]["WORKSHEET_SALES"]
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
 
         #Data Cleaning
@@ -48,8 +48,8 @@ class read_data():
         return df
     
     def fetch_cmr_data():
-        spreadsheet_url = "https://docs.google.com/spreadsheets/d/18sGa7-DQ0v0oHpMesTySUjr9Z4dh70hr4PUNm6t3uo0/"
-        worksheet_name = "CMRData"
+        spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
+        worksheet_name = st.secrets["file_address"]["WORKSHEET_CMR"]
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
 
         return df
