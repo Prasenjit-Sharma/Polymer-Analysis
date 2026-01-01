@@ -33,3 +33,17 @@ with col1:
 
 with col2:
     if st.button("Add New Discount"):
+
+st.markdown("### Existing Discount Schemes")
+    start, end = date_range_selector("view")
+    try:
+        existing_json = discount.read_json_from_drive()
+        filtered_json = filter_discounts_by_date(existing_json, start, end)
+
+        if not existing_json:
+            st.info("No discount schemes found in the selected date range.")
+        else:
+            discount.display_discounts_expander(filtered_json)
+
+    except Exception as e:
+        st.error(f"Failed to load discounts: {e}")

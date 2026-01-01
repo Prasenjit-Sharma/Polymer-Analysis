@@ -4,6 +4,74 @@ import json
 import pandas as pd
 from discount_calc import discount
 from datetime import date
+from streamlit_calendar import calendar
+
+DISCOUNT_COLORS = {
+    "MOU": "#1f77b4",
+    "Cash Discount": "#2ca02c",
+    "Early Bird": "#ff7f0e"
+}
+
+PRICE_CHANGE_STYLE = {
+    "Increase": {"direction": "▲", "color": "#2ecc71"},  # green
+    "Decrease": {"direction": "▼", "color": "#e74c3c"},  # red
+}
+
+# Discount Amount
+def format_discount_amount(record):
+    return f"Amt: {record.get('discount_amount', 0)}"
+
+# Display Discount in Calendar
+def discounts_to_calendar_events(discount_json: dict, selected_groups, selected_discount_types):
+    events = []
+
+    for discount_type, records in discount_json.items():
+        if discount_type not in selected_discount_types:
+            continue
+        for r in records:
+            record_groups = r.get("material_groups", [])
+
+            # BACKWARD-COMPATIBILITY FIX
+            if isinstance(record_groups, str):
+                record_groups = [record_groups]
+
+            if not set(record_groups).intersection(selected_groups):
+                continue
+
+            amount_text = format_discount_amount(r)
+            if discount_type == "Price Change":
+                style = PRICE_CHANGE_STYLE.get(r["direction"], {})
+                events.append({
+                    "title": f"Price: {style['direction']} | {amount_text}",
+                    "start": r["start_date"],
+                    "end": r["end_date"],
+                    "color": style["color"],
+                    "extendedProps": r  # keeps all data for future clicks
+                })
+
+            else:
+                events.append({
+                    "title": f"{discount_type} | {amount_text}",
+                    "start": r["start_date"],
+                    "end": r["end_date"],
+                    "color": DISCOUNT_COLORS.get(discount_type, "#888888"),
+                    "extendedProps": r  # keeps all data for future clicks
+                })
+
+    return events
+
+# Calendar View Options
+calendar_options = {
+    "initialView": "dayGridMonth",
+    "headerToolbar": {
+        "left": "prev,next today",
+        "center": "title",
+        "right": "dayGridMonth,timeGridWeek,timeGridDay"
+    },
+    "editable": False,
+    "selectable": False,
+    "height": "auto"
+}
 
 # Function for selecting record
 def select_discount_record(existing_json, key_prefix: str):
@@ -52,6 +120,22 @@ def filter_discounts_by_date(discount_json: dict, start: date, end: date):
 
     return filtered
 
+# Find Record Index
+def find_record_index(records, target_record, discount_type):
+    target_groups = target_record.get("material_groups", [])
+    if isinstance(target_groups, str):
+        target_groups = [target_groups]
+
+    for i, r in enumerate(records):
+        if (
+            r["start_date"] == target_record["start_date"]
+            and r["end_date"] == target_record["end_date"]
+            and set(r.get("material_groups", [])) == set(target_groups)
+        ):
+            return i
+
+    raise ValueError("Record not found in original data")
+
 # Date Range Picker
 def date_range_selector(key_prefix):
     col1, col2 = st.columns(2)
@@ -89,25 +173,55 @@ tab_view, tab_add, tab_modify, tab_delete = st.tabs(
 
 # View Discounts
 with tab_view:
-    st.markdown("### Existing Discount Schemes")
-    start, end = date_range_selector("view")
-    try:
-        existing_json = discount.read_json_from_drive()
-        filtered_json = filter_discounts_by_date(existing_json, start, end)
+    st.markdown("### Discount Calendar View")
 
-        if not existing_json:
-            st.info("No discount schemes found in the selected date range.")
-        else:
-            discount.display_discounts_expander(filtered_json)
+    existing_json = discount.read_json_from_drive()
+    col1, col2 = st.columns([2, 3])
 
-    except Exception as e:
-        st.error(f"Failed to load discounts: {e}")
+    with col1:
+        selected_groups = st.multiselect(
+            "Material Group",
+            ["PP", "LLDPE", "HDPE"],
+            default=["PP"],
+            key="view_material_group"
+        )
+
+    with col2:
+        selected_discount_types = st.multiselect(
+            "Discount Type",
+            list(discount.read_json_from_drive().keys()),
+            default=list(discount.read_json_from_drive().keys()),
+            key="view_discount_types"
+        )
+
+    if not existing_json:
+        st.info("No discount schemes configured.")
+    else:
+        events = discounts_to_calendar_events(existing_json,selected_groups, selected_discount_types)
+
+        calendar(
+            events=events,
+            options=calendar_options
+        )
 
 # Add New Discounts
 with tab_add:
     st.markdown("### Add New Discount")
     options_list = ["MOU", "Cash Discount", "Location Discount","Early Bird",
-                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme"]
+                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme",
+                        "Price Protection", "Price Change"]
+    
+    # Material Group Options
+    material_group = st.multiselect(
+        "Material Group",
+        ["PP", "LLDPE", "HDPE"],
+        default=["PP", "LLDPE", "HDPE"],
+        key="add_material_group"
+        )
+    if isinstance(material_group, str):
+        material_group = [material_group]
+
+    # Discount options
     discount_option = st.selectbox(
             "Discount Option",
             options_list,
@@ -129,12 +243,15 @@ with tab_add:
             with col2:
                 annual_mou_value = st.number_input("Enter MOU Annual Component")
             
+            discount_amount = month_mou_value+annual_mou_value
             data_to_save = {
+                "material_groups": material_group,
                 "discount_type": discount_option,
                 "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
                 "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
                 "monthly_component": month_mou_value,
-                "annual_component": annual_mou_value
+                "annual_component": annual_mou_value,
+                "discount_amount": discount_amount
             }
 
     # Cash Discount
@@ -146,13 +263,14 @@ with tab_add:
             with col2:
                 end_date = st.date_input("Discount End Date")
             with col1:
-                disc_value = st.number_input("Enter Cash Discount")
+                discount_amount = st.number_input("Enter Cash Discount")
             
             data_to_save = {
+                "material_groups": material_group,
                 "discount_type": discount_option,
                 "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
                 "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
-                "cash_disc_component": disc_value,
+                "discount_amount": discount_amount
             }
 
     # Early Bird
@@ -164,20 +282,42 @@ with tab_add:
             with col2:
                 end_date = st.date_input("Discount End Date")
             with col1:
-                disc_value = st.number_input("Enter Early Bird Discount")
+                discount_amount = st.number_input("Enter Early Bird Discount")
             
             data_to_save = {
+                "material_groups": material_group,
                 "discount_type": discount_option,
                 "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
                 "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
-                "disc_component": disc_value,
+                "discount_amount": discount_amount,
             }
 
-        # Button Saving as JSON
+    # Price Change
+    elif discount_option == "Price Change":
+            st.subheader("Early Bird Discount")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = end_date = st.date_input("Price Chnage Date")
+            with col2:
+                direction = st.selectbox("Direction",["Increase","Decrease"],placeholder="Select Direction")
+            with col1:
+                discount_amount = st.number_input("Enter Price Change Amount")
+            
+            data_to_save = {
+                "material_groups": material_group,
+                "discount_type": discount_option,
+                "direction" : direction,
+                "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+                "discount_amount": discount_amount,
+            }
+
+    # Button Saving as JSON
     if discount_option is not None and data_to_save:
             if st.button("Submit and Save"):
                 # Convert the Python dictionary to a pretty-printed JSON string
-                new_discount = json.dumps(data_to_save, indent=4)
+                # new_discount = json.dumps(data_to_save, indent=4)
+                new_discount = data_to_save
                 # Read json file from google drive
                 existing_json = discount.read_json_from_drive()
                 # Add new discount data
@@ -206,22 +346,59 @@ with tab_modify:
             updated_record = {}
 
             for key, value in record.items():
-                if "date" in key:
+                label = key.replace("_", " ").title()
+
+                # --- Dates ---
+                if key.endswith("_date") and value:
                     updated_record[key] = st.date_input(
-                        key.replace("_", " ").title(),
-                        pd.to_datetime(value)
+                        label,
+                        pd.to_datetime(value),
+                        key=f"edit_{key}_{dtype}"
                     ).isoformat()
-                else:
-                    updated_record[key] = st.number_input(
-                        key.replace("_", " ").title(),
-                        value=float(value)
+
+                # --- Material Groups (LIST[str]) ---
+                elif key == "material_groups":
+                    updated_record[key] = st.multiselect(
+                        label,
+                        ["PP", "LLDPE", "HDPE"],
+                        default=value,
+                        key=f"edit_{key}_{dtype}"
                     )
+
+                # --- Numeric values ---
+                elif isinstance(value, (int, float)):
+                    updated_record[key] = st.number_input(
+                        label,
+                        value=float(value),
+                        min_value=0.0,
+                        key=f"edit_{key}_{dtype}"
+                    )
+
+                # --- String values ---
+                elif isinstance(value, str):
+                    updated_record[key] = st.text_input(
+                        label,
+                        value=value,
+                        key=f"edit_{key}_{dtype}"
+                    )
+
+                # --- Fallback (do not edit) ---
+                else:
+                    updated_record[key] = value 
 
             save = st.form_submit_button("Save Changes")
 
         if save:
             # locate original index in full JSON
-            full_index = existing_json[dtype].index(record)
+            # full_index = existing_json[dtype].index(record)
+            # existing_json[dtype][full_index] = updated_record
+
+            full_index = find_record_index(
+            existing_json[dtype],
+            record,
+            discount_type=dtype
+            )
+
             existing_json[dtype][full_index] = updated_record
 
             discount.overwrite_json_in_drive(existing_json)
@@ -233,24 +410,68 @@ with tab_delete:
     st.markdown("### Delete Discount")
     start, end = date_range_selector("delete")
 
-    existing_json = discount.read_json_from_drive()
-    filtered_json = filter_discounts_by_date(existing_json, start, end)
+    # Material Group selector
+    selected_groups = st.multiselect(
+        "Material Group",
+        ["PP", "LLDPE", "HDPE"],
+        default=["PP", "LLDPE", "HDPE"],
+        key="delete_material_groups"
+    )
+
+    # Further filter by material groups
+    filtered_json = {
+        dtype: [
+            r for r in records
+            if set(
+                r.get("material_groups")
+                or r.get("material_group")
+                or []
+            ).intersection(selected_groups)
+        ]
+        for dtype, records in filtered_json.items()
+        if [
+            r for r in records
+            if set(
+                r.get("material_groups")
+                or r.get("material_group")
+                or []
+            ).intersection(selected_groups)
+        ]
+    }
 
     if not filtered_json:
-        st.info("No discounts available to delete.")
+        st.info("No discounts available to delete for the selected filters.")
     else:
-        dtype, idx, record = select_discount_record(filtered_json, key_prefix="delete")
-
-        st.warning(
-            f"You are about to delete **{dtype}** discount "
-            f"({record['start_date']} → {record['end_date']})"
+        # Select discount + record
+        dtype, idx, record = select_discount_record(
+            filtered_json,
+            key_prefix="delete"
         )
 
-        confirm = st.checkbox("I understand this action cannot be undone")
+        st.warning(
+            f"""
+            You are about to delete **{dtype}** discount  
+            **Period:** {record['start_date']} → {record['end_date']}  
+            **Material Groups:** {", ".join(record.get("material_groups", []))}
+            """
+        )
+
+        confirm = st.checkbox(
+            "I understand this action cannot be undone",
+            key="delete_confirm"
+        )
 
         if st.button("Delete Discount", disabled=not confirm):
-            del existing_json[dtype][idx]
+            # Find correct index in original (unfiltered) JSON
+            full_index = find_record_index(
+                existing_json[dtype],
+                record,
+                discount_type=dtype
+            )
 
+            del existing_json[dtype][full_index]
+
+            # Clean up empty discount type
             if not existing_json[dtype]:
                 del existing_json[dtype]
 
