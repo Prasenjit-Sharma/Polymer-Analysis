@@ -75,6 +75,7 @@ if not monthly_discounts:
     st.stop()
 
 else:
+    st.write("Monthly Discounts")
     st.success(monthly_discounts)
 
 if filtered_df.empty:
@@ -90,9 +91,17 @@ else:
 
     df_with_discount = discount.apply_discount(filtered_df,monthly_discounts)
 
-    st.write(df_with_discount.head())
+    st.write("Data with Discount")
+    discount.render_excel_pivot(df_with_discount)
 
-    discount.render_excel_pivot(filtered_df)
+    ## Displaying Data with Aggrid
+    # group_cols = ["Regional Office","Sold-to Group","Sold-to-Party Name",
+    #               "Material Group","Material Description",]
+    # group_df = discount.prepare_group_pivot(filtered_df,group_cols)
+    # discount.render_excel_pivot(group_df)
     
-    sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
-    st.write(sales_agg)
+    # sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
+    # sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+    # discount.render_excel_pivot(sales_agg)
+    # discount.render_excel_pivot(sales_agg)
+    

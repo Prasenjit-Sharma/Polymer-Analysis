@@ -83,5 +83,13 @@ class read_data():
         df["PE"] = df["PE"].fillna(0)
         # Keeping Customer ID as string
         df["Sold-to Party"] = df["Sold-to Party"].astype(str)
-
+        # Date Correction
+        df["MOU Start Date"] = pd.to_datetime(df["MOU Start Date"])
+        df["MOU End Date"] = pd.to_datetime(df["MOU End Date"])
+        # Call Function Customer Group
+        df_group = read_data.fetch_group_data()
+        df = df.merge(df_group[["Sold-to Party", "Sold-to Group"]],on="Sold-to Party",how="left")
+        df["Sold-to Group"] = df["Sold-to Group"].fillna(df["Sold-to-Party Name"])
+        # Rename specific columns
+        df = df.rename(columns={"PP": "MOU PP", "PE": "MOU PE"})
         return df

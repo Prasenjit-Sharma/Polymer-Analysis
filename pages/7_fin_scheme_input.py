@@ -7,7 +7,7 @@ from datetime import date
 from streamlit_calendar import calendar
 
 DISCOUNT_OPTIONS = ["MOU Discount", "Cash Discount", "Freight Discount","Early Bird",
-                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme",
+                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme","Hidden Discount",
                         "Price Protection", "Price Change"]
 
 DISCOUNT_COLORS = {
@@ -20,6 +20,14 @@ DISCOUNT_COLORS = {
 PRICE_CHANGE_STYLE = {
     "Increase": {"direction": "▲", "color": "#2ecc71"},  # green
     "Decrease": {"direction": "▼", "color": "#e74c3c"},  # red
+}
+
+FISCAL_START = 4  # April
+MONTHS = {
+    1: "January",  2: "February", 3: "March",
+    4: "April",    5: "May",      6: "June",
+    7: "July",     8: "August",   9: "September",
+    10: "October", 11: "November",12: "December"
 }
 
 # Discount Amount
@@ -216,7 +224,7 @@ with tab_view:
 # Add New Discounts
 with tab_add:
     st.markdown("### Add New Discount")
-    
+    data_to_save={}
     # Material Group Options
     material_group = st.multiselect(
         "Material Group",
@@ -338,6 +346,73 @@ with tab_add:
                 "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
                 "less_dist_value": less_dist_value,
                 "high_dist_value": high_dist_value,
+                "discount_amount": discount_amount
+            }
+
+    # X-Y Scheme
+    if discount_option == "X-Y Scheme":
+            st.subheader("X-Y Scheme")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Discount Start Date")
+            with col2:
+                end_date = st.date_input("Discount End Date")
+            with col1:
+                basis = st.selectbox("Basis of Scheme",("MOU%","Non-Zero Months Avg%"))
+            with col2:
+                if basis == "Non-Zero Months Avg%":
+                    # Get current month number (1–12)
+                    current_month = date.today().month
+                    current_year = date.today().year
+                    fiscal_year = current_year if current_month >= 4 else current_year - 1
+
+                    # Build fiscal year month sequence: Apr → Mar
+                    fiscal_months = list(range(FISCAL_START, 13)) + list(range(1, FISCAL_START))
+                    completed_months = fiscal_months[:fiscal_months.index(current_month)]
+
+                    # --- UI options ---
+                    month_options = [MONTHS[i] for i in completed_months]
+
+                    selected_names = st.multiselect(
+                        "Select fiscal months (prior to current month)",
+                        month_options,
+                        default=month_options
+                    )
+
+                    # --- Reverse lookup (generated on the fly) ---
+                    selected_numbers = [
+                        k for k, v in MONTHS.items() if v in selected_names
+                    ]
+                else:
+
+                    selected_numbers= xy_scheme_months =[]
+            col1, col2 = st.columns(2)
+            with col1:
+                x_percent = st.number_input("X-Percentage(%)", min_value=0, max_value=100,key="x_percent")
+            with col2:
+                x_amount = st.number_input("X-Amount per MT", key="x_amount")
+            with col1:
+                y_percent = st.number_input("Y-Percentage(%)", min_value=0, max_value=100,key="y_percent")
+            with col2:
+                y_amount = st.number_input("Y-Amount per MT", key="y_amount")
+            with col1:
+                z_percent = st.number_input("Z-Percentage(%)", min_value=0, max_value=100,key="z_percent")
+            with col2:
+                z_amount = st.number_input("Z-Amount per MT", key="z_amount")
+            discount_amount = y_amount          
+            data_to_save = {
+                "material_groups": material_group,
+                "discount_type": discount_option,
+                "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+                "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+                "basis": basis,
+                "xy_scheme_months": selected_numbers,
+                "x_percent": x_percent,
+                "x_amount": x_amount,
+                "y_percent": y_percent,
+                "y_amount": y_amount,
+                "z_percent": z_percent,
+                "z_amount": z_amount,
                 "discount_amount": discount_amount
             }
 
