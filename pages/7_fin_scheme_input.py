@@ -10,12 +10,13 @@ DISCOUNT_OPTIONS = ["X-Y Scheme","Hidden Discount", "Early Bird", "Price Protect
                     "MOU Discount","Cash Discount", "Freight Discount", 
                     "Quantity Discount", "Annual Quantity Discount", 
                     ]
+DISPLAY_DISCOUNT_TYPES = ["X-Y Scheme","Hidden Discount","Early Bird","Price Protection","Price Change"]
 
 DISCOUNT_COLORS = {
-    "MOU": "#1f77b4",
-    "Cash Discount": "#2ca02c",
+    "X-Y Scheme": "#1f77b4",
+    "Hidden Discount": "#2ca02c",
     "Early Bird": "#ff7f0e",
-    "Freight Discount": "#155b5b"
+    "Price Protection": "#155b5b"
 }
 
 PRICE_CHANGE_STYLE = {
@@ -62,7 +63,15 @@ def discounts_to_calendar_events(discount_json: dict, selected_groups, selected_
                     "color": style["color"],
                     "extendedProps": r  # keeps all data for future clicks
                 })
-
+            elif discount_type in ("X-Y Scheme","Hidden Discount"):
+                dis_basis = r["basis"]
+                events.append({
+                    "title": f"{discount_type} | {dis_basis} | {amount_text}",
+                    "start": r["start_date"],
+                    "end": r["end_date"],
+                    "color": DISCOUNT_COLORS.get(discount_type, "#888888"),
+                    "extendedProps": r  # keeps all data for future clicks
+                })
             else:
                 events.append({
                     "title": f"{discount_type} | {amount_text}",
@@ -71,6 +80,7 @@ def discounts_to_calendar_events(discount_json: dict, selected_groups, selected_
                     "color": DISCOUNT_COLORS.get(discount_type, "#888888"),
                     "extendedProps": r  # keeps all data for future clicks
                 })
+            
 
     return events
 
@@ -84,7 +94,7 @@ calendar_options = {
     },
     "editable": False,
     "selectable": False,
-    "height": "auto"
+    # "height": "auto"
 }
 
 # FRAGMENT (NO RELOAD ON SCROLL)
@@ -278,12 +288,15 @@ with tab_view:
         )
 
     with col2:
+        available_discount_types = list(discount.read_json_from_drive(st.session_state.cache_version).keys())
+        default_discount_types = [
+            d for d in DISPLAY_DISCOUNT_TYPES if d in available_discount_types]
         selected_discount_types = st.multiselect(
-            "Discount Type",
-            list(discount.read_json_from_drive(st.session_state.cache_version).keys()),
-            default=list(discount.read_json_from_drive(st.session_state.cache_version).keys()),
-            key="view_discount_types"
-        )
+                "Discount Type",
+                options=available_discount_types,
+                default=default_discount_types,
+                key="view_discount_types"
+            )
 
     if not existing_json:
         st.info("No discount schemes configured.")
