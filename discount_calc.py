@@ -9,6 +9,7 @@ import pandas as pd
 from calendar import monthrange
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
+FISCAL_START = 4  # April
 
 class discount():
 
@@ -273,6 +274,7 @@ class discount():
             for disc in discounts:
                 slabs = disc.get("discount_amount", [])
                 material_groups = disc.get("material_groups", [])
+                basis = disc.get("basis",[])
 
                 # Normalize material groups (safety)
                 if isinstance(material_groups, str):
@@ -283,45 +285,157 @@ class discount():
                 selected_year = disc_start.year
                 selected_month = disc_start.month
 
-                group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
 
-                base_mask = (
-                    df["Material Group"].isin(material_groups) &
-                    (df["Billing Date"] >= disc_start) &
-                    (df["Billing Date"] <= disc_end)
-                )
                 if "PP" in material_groups:
-                    mou_col = "%MOU PP"
                     valid_materials = ["PP"]
                 else:
-                    mou_col = "%MOU PE"
                     valid_materials = ["LLDPE", "HDPE"]
 
-                group_df["Hidden Discount"] = group_df[mou_col].apply(
-                    lambda x: discount.get_slab_amount(x, slabs)
-                )
-
-                hidden_map = (
-                    group_df
-                    .set_index("Sold-to Group")["Hidden Discount"]
-                    .to_dict()
-                )
-
-                assign_mask = base_mask & df["Material Group"].isin(valid_materials)
-
-                # 🔑 ACCUMULATE instead of overwrite
-                df.loc[assign_mask, "Hidden Discount"] += (
-                    df.loc[assign_mask, "Sold-to Group"]
-                    .map(hidden_map)
-                    .fillna(0.0)
-                )
+                if basis == "MOU%":
                 
+                    if "PP" in material_groups:
+                        mou_col = "%MOU PP"
+                    else:
+                        mou_col = "%MOU PE"
+                    group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+                    group_df["Hidden Discount"] = group_df[mou_col].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+               
+                elif basis== "Flat Discount":
+                    
+                     # --- GROUP-LEVEL TOTAL QUANTITY ---
+                    group_df = (
+                        df.groupby("Sold-to Group", as_index=False)["Quantity"].sum())
+                    
+                    # --- SLAB RESOLUTION ---
+                    group_df["Hidden Discount"] = group_df["Quantity"].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+                
+                elif basis == "Non-Zero Months Avg%":
+
+                    group_df = discount.prepare_non_zero_avg_group_pivot(df,scheme_months,
+                                                selected_year, selected_month)
+                    group_df = group_df[
+                        group_df["Material Family"] == material_family
+                    ].copy()
+                    # --- SLAB RESOLUTION ---
+                    group_df["X-Y Scheme"] = group_df["%Non-Zero Avg"].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+                    
+                # Common Part
+                hidden_map = (
+                        group_df
+                        .set_index("Sold-to Group")["Hidden Discount"]
+                        .to_dict()
+                    )
+                assign_mask = (
+                        df["Material Group"].isin(valid_materials) &
+                        (df["Billing Date"] >= disc_start) &
+                        (df["Billing Date"] <= disc_end)
+                    )
+                df.loc[assign_mask, "Hidden Discount"] += (
+                        df.loc[assign_mask, "Sold-to Group"]
+                        .map(hidden_map)
+                        .fillna(0.0)
+                    )    
                 df.loc[mask, "Hidden Discount Amount"] += (
                         df.loc[mask, "Quantity"] * df.loc[mask, "Hidden Discount"]
                     )
-                st.write(df["Hidden Discount"].dtype)
+                
                 df["Total Credit Note"] += df["Hidden Discount Amount"].fillna(0)
                 df["Total Discount"] += df["Hidden Discount Amount"].fillna(0)
+
+        if "X-Y Scheme" in monthly_discounts:
+            group_df = pd.DataFrame({'X-Y Scheme': [0]})
+            discounts = monthly_discounts["X-Y Scheme"]
+
+            for col in ["X-Y Scheme", "X-Y Scheme Amount"]:
+                if col not in df.columns:
+                    df[col] = 0.0
+                else:
+                    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+            for disc in discounts:
+                slabs = disc.get("discount_amount", [])
+                material_groups = disc.get("material_groups", [])
+                basis = disc.get("basis",[])
+                scheme_months = disc.get("scheme_months", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+                selected_year = disc_start.year
+                selected_month = disc_start.month
+
+
+                if "PP" in material_groups:
+                    material_family = "PP"
+                    valid_materials = ["PP"]
+                else:
+                    material_family = "PE"
+                    valid_materials = ["LLDPE", "HDPE"]
+
+                if basis == "MOU%":
+                
+                    if "PP" in material_groups:
+                        mou_col = "%MOU PP"
+                    else:
+                        mou_col = "%MOU PE"
+                    group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+                    group_df["X-Y Scheme"] = group_df[mou_col].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+               
+                elif basis== "Flat Discount":
+                    
+                     # --- GROUP-LEVEL TOTAL QUANTITY ---
+                    group_df = (
+                        df.groupby("Sold-to Group", as_index=False)["Quantity"].sum())
+                    
+                    # --- SLAB RESOLUTION ---
+                    group_df["X-Y Scheme"] = group_df["Quantity"].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+
+                elif basis == "Non-Zero Months Avg%":
+
+                    group_df = discount.prepare_non_zero_avg_group_pivot(df,scheme_months,
+                                                selected_year, selected_month)
+                    group_df = group_df[
+                        group_df["Material Family"] == material_family
+                    ].copy()
+                    # --- SLAB RESOLUTION ---
+                    group_df["X-Y Scheme"] = group_df["%Non-Zero Avg"].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+                    
+                # Common Part
+                hidden_map = (
+                        group_df
+                        .set_index("Sold-to Group")["X-Y Scheme"]
+                        .to_dict()
+                    )
+                assign_mask = (
+                        df["Material Group"].isin(valid_materials) &
+                        (df["Billing Date"] >= disc_start) &
+                        (df["Billing Date"] <= disc_end)
+                    )
+                df.loc[assign_mask, "X-Y Scheme"] += (
+                        df.loc[assign_mask, "Sold-to Group"]
+                        .map(hidden_map)
+                        .fillna(0.0)
+                    )    
+                df.loc[mask, "X-Y Scheme Amount"] += (
+                        df.loc[mask, "Quantity"] * df.loc[mask, "X-Y Scheme"]
+                    )
+                
+                df["Total Credit Note"] += df["X-Y Scheme Amount"].fillna(0)
+                df["Total Discount"] += df["X-Y Scheme Amount"].fillna(0)
 
         return df
     
@@ -334,7 +448,7 @@ class discount():
         applicable = [
             s["amount"]
             for s in slabs
-            if quantity >= s["criteria"] and quantity>0
+            if quantity >= s["criteria"]
         ]
         return max(applicable) if applicable else 0.0
     
@@ -462,6 +576,86 @@ class discount():
             df.groupby(group_cols, as_index=False)
             .agg({"Quantity": "sum"})
         )
+
+    def prepare_non_zero_avg_group_pivot(
+    df: pd.DataFrame,
+    scheme_months: list[int],
+    selected_year: int,
+    selected_month: int
+) -> pd.DataFrame:
+        # -----------------------------
+        # 1. Determine fiscal year start
+        # -----------------------------
+        if selected_month >= FISCAL_START:
+            fiscal_year = selected_year
+        else:
+            fiscal_year = selected_year - 1
+        
+        # -----------------------------
+        # 2. Normalize material family
+        # -----------------------------
+        def material_family(mg):
+            return "PP" if mg == "PP" else "PE"
+
+        filtered_df = df.copy()
+        full_df = st.session_state["Sales Data"].copy()
+
+        filtered_df["Material Family"] = filtered_df["Material Group"].map(material_family)
+        full_df["Material Family"] = full_df["Material Group"].map(material_family)
+
+        # 3. CURRENT MONTH QUANTITY
+        current_qty = (
+        filtered_df
+        .groupby(
+            ["Sold-to Group", "Material Family"],
+            as_index=False
+        )["Quantity"]
+        .sum()
+        .rename(columns={"Quantity": "Current Month Qty"})
+    )
+        # 4. Build fiscal historical window
+        def map_fiscal_year(row):
+            return row["Year"] if row["Month"] >= FISCAL_START else row["Year"] - 1
+
+        full_df["Fiscal Year"] = full_df.apply(map_fiscal_year, axis=1)
+
+        history_df = full_df[
+            (full_df["Fiscal Year"] == fiscal_year) &
+            (full_df["Month"].isin(scheme_months))
+        ]
+        # 5. Monthly aggregation
+        monthly_qty = (
+        history_df
+        .groupby(
+            ["Sold-to Group", "Material Family", "Month"],
+            as_index=False
+        )["Quantity"]
+        .sum()
+    )
+        # 6. NON-ZERO MONTHS AVG
+        non_zero_avg = (
+        monthly_qty[monthly_qty["Quantity"] > 0]
+        .groupby(
+            ["Sold-to Group", "Material Family"],
+            as_index=False
+        )["Quantity"]
+        .mean()
+        .rename(columns={"Quantity": "Non-Zero Avg Qty"})
+    )
+        # 7. Merge metrics
+        pivot = current_qty.merge(
+        non_zero_avg,
+        on=["Sold-to Group", "Material Family"],
+        how="left"
+    )
+
+        pivot["Non-Zero Avg Qty"] = pivot["Non-Zero Avg Qty"].fillna(0.0)
+
+        # % MOU
+        pivot["%Non-Zero Avg"] = ((pivot["Current Month Qty"] / pivot["Non-Zero Avg Qty"]*100)
+                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
+
+        return pivot
 
     # Display Aggrid view of Group Pivot
     def render_excel_pivot(df,key):

@@ -40,3 +40,40 @@ To Do
                 "annual_component": annual_mou_value,
                 "discount_amount": discount_amount
             }
+
+elif basis== "Flat Discount":
+                    base_mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+                     # --- GROUP-LEVEL TOTAL QUANTITY ---
+                    qty_group = (
+                        df.loc[base_mask]
+                        .groupby("Sold-to Group", as_index=False)["Quantity"]
+                        .sum()
+                    )
+                    
+                    # --- SLAB RESOLUTION ---
+                    qty_group["Hidden Discount"] = qty_group["Quantity"].apply(
+                        lambda x: discount.get_slab_amount(x, slabs)
+                    )
+                    
+                    hidden_map = (
+                        qty_group
+                        .set_index("Sold-to Group")["Hidden Discount"]
+                        .to_dict()
+                    )
+                    
+                    assign_mask = base_mask & df["Material Group"].isin(valid_materials)
+                    st.write("Rows eligible:", assign_mask.sum())
+                    st.write(
+                        df.loc[assign_mask, ["Sold-to Group", "Material Group"]]
+                        .drop_duplicates()
+                    )
+                    # 🔑 ACCUMULATE instead of overwrite
+                    df.loc[assign_mask, "Hidden Discount"] += (
+                        df.loc[assign_mask, "Sold-to Group"]
+                        .map(hidden_map)
+                        .fillna(0.0)
+                    )

@@ -100,7 +100,12 @@ else:
     
     
     # sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
-    sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
-    discount.render_excel_pivot(sales_agg, "mou_df")
+    # sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+    # discount.render_excel_pivot(sales_agg, "mou_df")
     # discount.render_excel_pivot(sales_agg)
+
+    # scheme_months =  [4,5,6,7,8,9,10,11,12]
+    # non_zero_pivot = discount.prepare_non_zero_avg_group_pivot(filtered_df,
+    #                             scheme_months,selected_year,selected_month)
+    # discount.render_excel_pivot(non_zero_pivot,"non_zero_df")
     
