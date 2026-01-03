@@ -1,10 +1,10 @@
 import streamlit as st
 import datetime
-import json
 import pandas as pd
 from discount_calc import discount
 from datetime import date
 from streamlit_calendar import calendar
+
 
 DISCOUNT_OPTIONS = ["X-Y Scheme","Hidden Discount", "Early Bird", "Price Protection", "Price Change",
                     "MOU Discount","Cash Discount", "Freight Discount", 
@@ -266,7 +266,7 @@ with tab_view:
     st.markdown("### Discount Calendar View")
 
     # Delete reading discount in Production
-    existing_json = st.session_state["Discount Data"]
+    existing_json = discount.read_json_from_drive(st.session_state.cache_version)
     col1, col2 = st.columns([2, 3])
 
     with col1:
@@ -280,8 +280,8 @@ with tab_view:
     with col2:
         selected_discount_types = st.multiselect(
             "Discount Type",
-            list(discount.read_json_from_drive().keys()),
-            default=list(discount.read_json_from_drive().keys()),
+            list(discount.read_json_from_drive(st.session_state.cache_version).keys()),
+            default=list(discount.read_json_from_drive(st.session_state.cache_version).keys()),
             key="view_discount_types"
         )
 
@@ -545,11 +545,12 @@ with tab_add:
                 # Convert the Python dictionary to a pretty-printed JSON string
                 new_discount = data_to_save
                 # Read json file from google drive
-                current_add_json = discount.read_json_from_drive(force_reload=True)
+                current_add_json = discount.read_json_from_drive(st.session_state.cache_version)
                 # Add new discount data
                 updated_json = discount.append_discount(current_add_json, new_discount)
                 # Rewrite file to drive
                 discount.overwrite_json_in_drive(updated_json)
+                st.session_state.cache_version += 1
                 # st.success(data_to_save)
                 st.success("Data successfully Saved.")
                 # st.code(updated_json, language="json")
@@ -559,7 +560,7 @@ with tab_modify:
     st.markdown("### Modify Existing Discount")
 
     start, end = date_range_selector("modify")
-    current_mod_json = discount.read_json_from_drive(force_reload=True)
+    current_mod_json = discount.read_json_from_drive(st.session_state.cache_version)
 
     filtered_json = filter_discounts_by_date(current_mod_json, start, end)
 
@@ -627,6 +628,7 @@ with tab_modify:
             current_mod_json[dtype][full_index] = updated_record
 
             discount.overwrite_json_in_drive(current_mod_json)
+            st.session_state.cache_version += 1
             st.success("Discount updated successfully")
             # st.rerun()
 
@@ -635,7 +637,7 @@ with tab_delete:
     st.markdown("### Delete Discount")
     start, end = date_range_selector("delete")
 
-    current_del_json = discount.read_json_from_drive(force_reload=True)
+    current_del_json = discount.read_json_from_drive(st.session_state.cache_version)
 
     filtered_json = filter_discounts_by_date(current_del_json, start, end)
     # Material Group selector
@@ -704,5 +706,6 @@ with tab_delete:
                 del current_del_json[dtype]
 
             discount.overwrite_json_in_drive(current_del_json)
+            st.session_state.cache_version += 1
             st.success("Discount deleted successfully")
             # st.rerun()
