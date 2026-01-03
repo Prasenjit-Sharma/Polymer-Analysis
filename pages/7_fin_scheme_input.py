@@ -192,6 +192,7 @@ def date_range_selector(key_prefix):
 
     return start, end
 
+# List of Previous Months in The Fiscal Year
 def scheme_month_selection(key_prefix):
     # Get current month number (1–12)
     current_month = date.today().month
@@ -218,6 +219,7 @@ def scheme_month_selection(key_prefix):
     ]
     return selected_numbers
 
+# Slab Discount View
 def slab_discounts(key_prefix, basis):
     default_df = pd.DataFrame({"Criteria": [80],"Discount Amount": [0.0],})
     slab_df = st.data_editor(

@@ -147,17 +147,17 @@ class discount():
                     df.loc[mask, "Quantity"] * month_discount_amount
                 )
                 df.loc[mask, "Annual MOU Discount"] = (
-                    month_discount_amount
+                    annual_discount_amount
                 )
                 df.loc[mask, "Annual MOU Discount Amount"] = (
-                    df.loc[mask, "Quantity"] * month_discount_amount
+                    df.loc[mask, "Quantity"] * annual_discount_amount
                 )
-                df["Total Credit Note"] += df["Month MOU Discount Amount"]
-                df["Total Discount"] += df["Month MOU Discount Amount"] + df["Annual MOU Discount Amount"]
+                df["Total Credit Note"] += df["Month MOU Discount Amount"].fillna(0)
+                df["Total Discount"] += df["Month MOU Discount Amount"].fillna(0) + df["Annual MOU Discount Amount"].fillna(0)
         
         if "Early Bird" in monthly_discounts:
             
-            discounts = monthly_discounts["Early Bird Discount"]
+            discounts = monthly_discounts["Early Bird"]
             for disc in discounts:
                 discount_amount = disc.get("discount_amount", 0.0)
                 material_groups = disc.get("material_groups", [])
@@ -182,12 +182,12 @@ class discount():
                 df.loc[mask, "Early Bird Amount"] = (
                     df.loc[mask, "Quantity"] * discount_amount
                 )
-                df["Total Credit Note"] += df["Early Bird Amount"]
-                df["Total Discount"] += df["Early Bird Amount"]
+                df["Total Credit Note"] += df["Early Bird Amount"].fillna(0)
+                df["Total Discount"] += df["Early Bird Amount"].fillna(0)
 
         if "Price Protection" in monthly_discounts:
             
-            discounts = monthly_discounts["Price Protection Discount"]
+            discounts = monthly_discounts["Price Protection"]
             for disc in discounts:
                 discount_amount = disc.get("discount_amount", 0.0)
                 material_groups = disc.get("material_groups", [])
@@ -212,8 +212,9 @@ class discount():
                 df.loc[mask, "Price Protection Amount"] = (
                     df.loc[mask, "Quantity"] * discount_amount
                 )
-                df["Total Credit Note"] += df["Price Protection Amount"]
-                df["Total Discount"] += df["Price Protection Amount"]
+                
+                df["Total Credit Note"] += df["Price Protection Amount"].fillna(0)
+                df["Total Discount"] += df["Price Protection Amount"].fillna(0)
         
         if "Freight Discount" in monthly_discounts:
             
@@ -257,9 +258,85 @@ class discount():
                 )
 
                 df = df.drop("Warehouse Distance", axis=1)
-                df["Total Credit Note"] += df["Freight Discount Amount"]
-                df["Total Discount"] += df["Freight Discount Amount"]
+                df["Total Credit Note"] += df["Freight Discount Amount"].fillna(0)
+                df["Total Discount"] += df["Freight Discount Amount"].fillna(0)
+        
+        if "Hidden Discount" in monthly_discounts:
+            
+            discounts = monthly_discounts["Hidden Discount"]
+
+            for col in ["Hidden Discount", "Hidden Discount Amount"]:
+                if col not in df.columns:
+                    df[col] = 0.0
+                else:
+                    df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0.0)
+            for disc in discounts:
+                slabs = disc.get("discount_amount", [])
+                material_groups = disc.get("material_groups", [])
+
+                # Normalize material groups (safety)
+                if isinstance(material_groups, str):
+                    material_groups = [material_groups]
+
+                disc_start = pd.to_datetime(disc["start_date"])
+                disc_end = pd.to_datetime(disc["end_date"])
+                selected_year = disc_start.year
+                selected_month = disc_start.month
+
+                group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+
+                base_mask = (
+                    df["Material Group"].isin(material_groups) &
+                    (df["Billing Date"] >= disc_start) &
+                    (df["Billing Date"] <= disc_end)
+                )
+                if "PP" in material_groups:
+                    mou_col = "%MOU PP"
+                    valid_materials = ["PP"]
+                else:
+                    mou_col = "%MOU PE"
+                    valid_materials = ["LLDPE", "HDPE"]
+
+                group_df["Hidden Discount"] = group_df[mou_col].apply(
+                    lambda x: discount.get_slab_amount(x, slabs)
+                )
+
+                hidden_map = (
+                    group_df
+                    .set_index("Sold-to Group")["Hidden Discount"]
+                    .to_dict()
+                )
+
+                assign_mask = base_mask & df["Material Group"].isin(valid_materials)
+
+                # 🔑 ACCUMULATE instead of overwrite
+                df.loc[assign_mask, "Hidden Discount"] += (
+                    df.loc[assign_mask, "Sold-to Group"]
+                    .map(hidden_map)
+                    .fillna(0.0)
+                )
+                
+                df.loc[mask, "Hidden Discount Amount"] += (
+                        df.loc[mask, "Quantity"] * df.loc[mask, "Hidden Discount"]
+                    )
+                st.write(df["Hidden Discount"].dtype)
+                df["Total Credit Note"] += df["Hidden Discount Amount"].fillna(0)
+                df["Total Discount"] += df["Hidden Discount Amount"].fillna(0)
+
         return df
+    
+    # Retreive Slab Discount
+    def get_slab_amount(quantity: float, slabs: list[dict]) -> float:
+        """
+        slabs: list of dicts with keys: criteria, amount
+        Rule: highest criteria <= quantity wins
+        """
+        applicable = [
+            s["amount"]
+            for s in slabs
+            if quantity >= s["criteria"] and quantity>0
+        ]
+        return max(applicable) if applicable else 0.0
     
     # Table MOU & SAles on Customer Group Merged
     @staticmethod
@@ -365,6 +442,11 @@ class discount():
         final_df["MOU PP"] = final_df["MOU PP"].fillna(0)
         final_df["MOU PE"] = final_df["MOU PE"].fillna(0)
 
+        # % MOU
+        final_df["%MOU PP"] = ((final_df["Total PP"] / final_df["MOU PP"]*100)
+                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
+        final_df["%MOU PE"] = ((final_df["Total PE"] / final_df["MOU PE"]*100)
+                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
         return final_df
     
     # Grouping Sales Data
@@ -382,7 +464,7 @@ class discount():
         )
 
     # Display Aggrid view of Group Pivot
-    def render_excel_pivot(df):
+    def render_excel_pivot(df,key):
 
         gb = GridOptionsBuilder.from_dataframe(df)
 
@@ -431,5 +513,6 @@ class discount():
             theme="balham",
             enable_enterprise_modules=True,
             allow_unsafe_jscode=True,
-            update_mode="NO_UPDATE"
+            update_mode="NO_UPDATE",
+            key=key
         )

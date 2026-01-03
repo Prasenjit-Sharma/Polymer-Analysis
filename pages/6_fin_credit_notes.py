@@ -8,7 +8,7 @@ st.title("Credit Notes")
 # Read Data
 df = st.session_state["Sales Data"]
 # May be modified to read data again post publishing
-discount_json = st.session_state["Discount Data"] = discount.read_json_from_drive()
+discount_json = st.session_state["Discount Data"] = discount.read_json_from_drive(st.session_state.cache_version)
 
 
 # Function 
@@ -74,9 +74,9 @@ if not monthly_discounts:
     st.warning("No discounts applicable for the selected month.")
     st.stop()
 
-else:
-    st.write("Monthly Discounts")
-    st.success(monthly_discounts)
+# else:
+#     st.write("Monthly Discounts")
+#     st.success(monthly_discounts)
 
 if filtered_df.empty:
     st.warning(
@@ -85,23 +85,22 @@ if filtered_df.empty:
     st.stop()
 
 else:
-    st.success(
-    f"Total Records: {len(filtered_df)} | "
-    f"Total Quantity: {filtered_df['Quantity'].sum():,.0f}")
+    # st.success(
+    # f"Total Records: {len(filtered_df)} | "
+    # f"Total Quantity: {filtered_df['Quantity'].sum():,.0f}")
 
     df_with_discount = discount.apply_discount(filtered_df,monthly_discounts)
 
     st.write("Data with Discount")
-    discount.render_excel_pivot(df_with_discount)
+    discount.render_excel_pivot(df_with_discount,"discount_df")
 
     ## Displaying Data with Aggrid
     # group_cols = ["Regional Office","Sold-to Group","Sold-to-Party Name",
     #               "Material Group","Material Description",]
-    # group_df = discount.prepare_group_pivot(filtered_df,group_cols)
-    # discount.render_excel_pivot(group_df)
+    
     
     # sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
-    # sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
-    # discount.render_excel_pivot(sales_agg)
+    sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+    discount.render_excel_pivot(sales_agg, "mou_df")
     # discount.render_excel_pivot(sales_agg)
     
