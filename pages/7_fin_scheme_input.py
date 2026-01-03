@@ -6,9 +6,10 @@ from discount_calc import discount
 from datetime import date
 from streamlit_calendar import calendar
 
-DISCOUNT_OPTIONS = ["MOU Discount", "Cash Discount", "Freight Discount","Early Bird",
-                        "Quantity Discount", "Annual Quantity Discount", "X-Y Scheme","Hidden Discount",
-                        "Price Protection", "Price Change"]
+DISCOUNT_OPTIONS = ["X-Y Scheme","Hidden Discount", "Early Bird", "Price Protection", "Price Change",
+                    "MOU Discount","Cash Discount", "Freight Discount", 
+                    "Quantity Discount", "Annual Quantity Discount", 
+                    ]
 
 DISCOUNT_COLORS = {
     "MOU": "#1f77b4",
@@ -181,6 +182,74 @@ def date_range_selector(key_prefix):
 
     return start, end
 
+def scheme_month_selection(key_prefix):
+    # Get current month number (1–12)
+    current_month = date.today().month
+    current_year = date.today().year
+    fiscal_year = current_year if current_month >= 4 else current_year - 1
+
+    # Build fiscal year month sequence: Apr → Mar
+    fiscal_months = list(range(FISCAL_START, 13)) + list(range(1, FISCAL_START))
+    completed_months = fiscal_months[:fiscal_months.index(current_month)]
+
+    # --- UI options ---
+    month_options = [MONTHS[i] for i in completed_months]
+
+    selected_names = st.multiselect(
+        "Select fiscal months (prior to current month)",
+        month_options,
+        default=month_options,
+        key=f"{key_prefix}_month"
+    )
+
+    # --- Reverse lookup (generated on the fly) ---
+    selected_numbers = [
+        k for k, v in MONTHS.items() if v in selected_names
+    ]
+    return selected_numbers
+
+def slab_discounts(key_prefix, basis):
+    default_df = pd.DataFrame({"Criteria": [80],"Discount Amount": [0.0],})
+    slab_df = st.data_editor(
+        default_df,
+        num_rows="dynamic",
+        width='stretch',
+        column_config={
+            basis : st.column_config.NumberColumn(
+                min_value=0,
+                required=True
+            ),
+            "Discount Amount": st.column_config.NumberColumn(
+                min_value=0.0,
+                required=True
+            ),
+        },
+        key=f"{key_prefix}_slab",
+        )
+
+    if slab_df.empty:
+        st.error("At least one slab is required.")
+        st.stop()
+
+    # Validate ordering
+    volumes = slab_df["Criteria"].tolist()
+    if volumes != sorted(volumes):
+        st.error("Criteria must be in increasing order.")
+        st.stop()
+
+    # Build final structure
+    discount_amount = []
+    for _, row in slab_df.iterrows():
+        discount_amount.append(
+            {
+                "criteria": int(row["Criteria"])
+                if not pd.isna(row["Criteria"])
+                else None,
+                "amount": float(row["Discount Amount"]),
+            }
+        )
+    return discount_amount
+
 st.set_page_config(
     page_title="Monthly Schemes",
     layout="wide"
@@ -196,7 +265,8 @@ tab_view, tab_add, tab_modify, tab_delete = st.tabs(
 with tab_view:
     st.markdown("### Discount Calendar View")
 
-    existing_json = st.session_state["Discount Data"] 
+    # Delete reading discount in Production
+    existing_json = st.session_state["Discount Data"]
     col1, col2 = st.columns([2, 3])
 
     with col1:
@@ -224,7 +294,7 @@ with tab_view:
 # Add New Discounts
 with tab_add:
     st.markdown("### Add New Discount")
-    data_to_save={}
+    # data_to_save={}
     # Material Group Options
     material_group = st.multiselect(
         "Material Group",
@@ -326,7 +396,7 @@ with tab_add:
             }
 
     # Freight Discount
-    if discount_option == "Freight Discount":
+    elif discount_option == "Freight Discount":
             st.subheader("Freight Discount")
             col1, col2 = st.columns(2)
             with col1:
@@ -350,7 +420,7 @@ with tab_add:
             }
 
     # X-Y Scheme
-    if discount_option == "X-Y Scheme":
+    elif discount_option == "X-Y Scheme":
             st.subheader("X-Y Scheme")
             col1, col2 = st.columns(2)
             with col1:
@@ -361,68 +431,100 @@ with tab_add:
                 basis = st.selectbox("Basis of Scheme",("MOU%","Non-Zero Months Avg%"))
             with col2:
                 if basis == "Non-Zero Months Avg%":
-                    # Get current month number (1–12)
-                    current_month = date.today().month
-                    current_year = date.today().year
-                    fiscal_year = current_year if current_month >= 4 else current_year - 1
-
-                    # Build fiscal year month sequence: Apr → Mar
-                    fiscal_months = list(range(FISCAL_START, 13)) + list(range(1, FISCAL_START))
-                    completed_months = fiscal_months[:fiscal_months.index(current_month)]
-
-                    # --- UI options ---
-                    month_options = [MONTHS[i] for i in completed_months]
-
-                    selected_names = st.multiselect(
-                        "Select fiscal months (prior to current month)",
-                        month_options,
-                        default=month_options
-                    )
-
-                    # --- Reverse lookup (generated on the fly) ---
-                    selected_numbers = [
-                        k for k, v in MONTHS.items() if v in selected_names
-                    ]
+                    selected_numbers = scheme_month_selection(discount_option)
                 else:
 
-                    selected_numbers= xy_scheme_months =[]
+                    selected_numbers =[]
+
+            discount_amount = slab_discounts(discount_option, basis)
+            
+            data_to_save = {
+            "material_groups": material_group,
+            "discount_type": discount_option,
+            "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+            "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+            "basis": basis,
+            "scheme_months": selected_numbers,
+            "discount_amount": discount_amount
+        }          
+    
+    # Hidden Scheme
+    elif discount_option == "Hidden Discount":
+            st.subheader("Hidden Discount")
             col1, col2 = st.columns(2)
             with col1:
-                x_percent = st.number_input("X-Percentage(%)", min_value=0, max_value=100,key="x_percent")
+                start_date = st.date_input("Discount Start Date")
             with col2:
-                x_amount = st.number_input("X-Amount per MT", key="x_amount")
+                end_date = st.date_input("Discount End Date")
             with col1:
-                y_percent = st.number_input("Y-Percentage(%)", min_value=0, max_value=100,key="y_percent")
+                basis = st.selectbox("Basis of Scheme",("Flat Discount","MOU%","Non-Zero Months Avg%"))
             with col2:
-                y_amount = st.number_input("Y-Amount per MT", key="y_amount")
-            with col1:
-                z_percent = st.number_input("Z-Percentage(%)", min_value=0, max_value=100,key="z_percent")
-            with col2:
-                z_amount = st.number_input("Z-Amount per MT", key="z_amount")
-            discount_amount = y_amount          
+                if basis == "Non-Zero Months Avg%":
+                    selected_numbers = scheme_month_selection(discount_option)
+                else:
+                    selected_numbers =[]
+
+            discount_amount = slab_discounts(discount_option, basis)
+            
             data_to_save = {
-                "material_groups": material_group,
-                "discount_type": discount_option,
-                "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
-                "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
-                "basis": basis,
-                "xy_scheme_months": selected_numbers,
-                "x_percent": x_percent,
-                "x_amount": x_amount,
-                "y_percent": y_percent,
-                "y_amount": y_amount,
-                "z_percent": z_percent,
-                "z_amount": z_amount,
-                "discount_amount": discount_amount
-            }
+            "material_groups": material_group,
+            "discount_type": discount_option,
+            "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+            "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+            "basis": basis,
+            "scheme_months": selected_numbers,
+            "discount_amount": discount_amount
+        }          
+
+    # Quantity Scheme
+    elif discount_option == "Quantity Discount":
+            st.subheader("Quantity Discount")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Discount Start Date")
+            with col2:
+                end_date = st.date_input("Discount End Date")
+            basis = "Volumes"
+
+            discount_amount = slab_discounts(discount_option, basis)
+            
+            data_to_save = {
+            "material_groups": material_group,
+            "discount_type": discount_option,
+            "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+            "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+            "basis": basis,
+            "discount_amount": discount_amount
+        }          
+
+    # Annual Quantity Scheme
+    elif discount_option == "Annual Quantity Discount":
+            st.subheader("Annual Quantity Discount")
+            col1, col2 = st.columns(2)
+            with col1:
+                start_date = st.date_input("Discount Start Date")
+            with col2:
+                end_date = st.date_input("Discount End Date")
+            basis = "Volumes"
+
+            discount_amount = slab_discounts(discount_option, basis)
+            
+            data_to_save = {
+            "material_groups": material_group,
+            "discount_type": discount_option,
+            "start_date": start_date.isoformat() if isinstance(start_date, datetime.date) else None,
+            "end_date": end_date.isoformat() if isinstance(end_date, datetime.date) else None,
+            "basis": basis,
+            "discount_amount": discount_amount
+        }          
 
 
     # Price Change
     elif discount_option == "Price Change":
-            st.subheader("Early Bird Discount")
+            st.subheader("Price Change")
             col1, col2 = st.columns(2)
             with col1:
-                start_date = end_date = st.date_input("Price Chnage Date")
+                start_date = end_date = st.date_input("Price Change Date")
             with col2:
                 direction = st.selectbox("Direction",["Increase","Decrease"],placeholder="Select Direction")
             with col1:
@@ -438,27 +540,28 @@ with tab_add:
             }
 
     # Button Saving as JSON
-    if discount_option is not None and data_to_save:
+    if discount_option is not None:
             if st.button("Submit and Save"):
                 # Convert the Python dictionary to a pretty-printed JSON string
-                # new_discount = json.dumps(data_to_save, indent=4)
                 new_discount = data_to_save
                 # Read json file from google drive
-                existing_json = discount.read_json_from_drive()
+                current_add_json = discount.read_json_from_drive(force_reload=True)
                 # Add new discount data
-                updated_json = discount.append_discount(existing_json, new_discount)
+                updated_json = discount.append_discount(current_add_json, new_discount)
                 # Rewrite file to drive
                 discount.overwrite_json_in_drive(updated_json)
+                # st.success(data_to_save)
                 st.success("Data successfully Saved.")
                 # st.code(updated_json, language="json")
 
 # Modify Discounts
 with tab_modify:
     st.markdown("### Modify Existing Discount")
-    start, end = date_range_selector("modify")
 
-    existing_json = discount.read_json_from_drive()
-    filtered_json = filter_discounts_by_date(existing_json, start, end)
+    start, end = date_range_selector("modify")
+    current_mod_json = discount.read_json_from_drive(force_reload=True)
+
+    filtered_json = filter_discounts_by_date(current_mod_json, start, end)
 
     if not filtered_json:
         st.info("No discounts available to modify.")
@@ -515,26 +618,26 @@ with tab_modify:
 
         if save:
             # locate original index in full JSON
-            # full_index = existing_json[dtype].index(record)
-            # existing_json[dtype][full_index] = updated_record
-
             full_index = find_record_index(
-            existing_json[dtype],
+            current_mod_json[dtype],
             record,
             discount_type=dtype
             )
 
-            existing_json[dtype][full_index] = updated_record
+            current_mod_json[dtype][full_index] = updated_record
 
-            discount.overwrite_json_in_drive(existing_json)
+            discount.overwrite_json_in_drive(current_mod_json)
             st.success("Discount updated successfully")
-            st.rerun()
+            # st.rerun()
 
 # Delete Discounts
 with tab_delete:
     st.markdown("### Delete Discount")
     start, end = date_range_selector("delete")
 
+    current_del_json = discount.read_json_from_drive(force_reload=True)
+
+    filtered_json = filter_discounts_by_date(current_del_json, start, end)
     # Material Group selector
     selected_groups = st.multiselect(
         "Material Group",
@@ -589,17 +692,17 @@ with tab_delete:
         if st.button("Delete Discount", disabled=not confirm):
             # Find correct index in original (unfiltered) JSON
             full_index = find_record_index(
-                existing_json[dtype],
+                current_del_json[dtype],
                 record,
                 discount_type=dtype
             )
 
-            del existing_json[dtype][full_index]
+            del current_del_json[dtype][full_index]
 
             # Clean up empty discount type
-            if not existing_json[dtype]:
-                del existing_json[dtype]
+            if not current_del_json[dtype]:
+                del current_del_json[dtype]
 
-            discount.overwrite_json_in_drive(existing_json)
+            discount.overwrite_json_in_drive(current_del_json)
             st.success("Discount deleted successfully")
-            st.rerun()
+            # st.rerun()
