@@ -108,4 +108,7 @@ else:
     # non_zero_pivot = discount.prepare_non_zero_avg_group_pivot(filtered_df,
     #                             scheme_months,selected_year,selected_month)
     # discount.render_excel_pivot(non_zero_pivot,"non_zero_df")
+
+    mou_pivot = discount.prepare_mou_group_pivot(filtered_df,selected_year,selected_month)
+    discount.render_excel_pivot(mou_pivot,"mou")
     

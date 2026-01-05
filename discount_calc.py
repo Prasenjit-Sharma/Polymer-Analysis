@@ -287,18 +287,28 @@ class discount():
 
 
                 if "PP" in material_groups:
+                    material_family = "PP"
                     valid_materials = ["PP"]
                 else:
+                    material_family = "PE"
                     valid_materials = ["LLDPE", "HDPE"]
 
                 if basis == "MOU%":
                 
-                    if "PP" in material_groups:
-                        mou_col = "%MOU PP"
-                    else:
-                        mou_col = "%MOU PE"
-                    group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
-                    group_df["Hidden Discount"] = group_df[mou_col].apply(
+                    # if "PP" in material_groups:
+                    #     mou_col = "%MOU PP"
+                    # else:
+                    #     mou_col = "%MOU PE"
+                    # group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+                    # group_df["Hidden Discount"] = group_df[mou_col].apply(
+                    #     lambda x: discount.get_slab_amount(x, slabs)
+                    # )
+                    group_df = discount.prepare_mou_group_pivot(df,selected_year, selected_month)
+                    group_df = group_df[
+                        group_df["Material Family"] == material_family
+                    ].copy()
+                    # --- SLAB RESOLUTION ---
+                    group_df["Hidden Discount"] = group_df["%MOU"].apply(
                         lambda x: discount.get_slab_amount(x, slabs)
                     )
                
@@ -382,12 +392,20 @@ class discount():
 
                 if basis == "MOU%":
                 
-                    if "PP" in material_groups:
-                        mou_col = "%MOU PP"
-                    else:
-                        mou_col = "%MOU PE"
-                    group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
-                    group_df["X-Y Scheme"] = group_df[mou_col].apply(
+                    # if "PP" in material_groups:
+                    #     mou_col = "%MOU PP"
+                    # else:
+                    #     mou_col = "%MOU PE"
+                    # group_df = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
+                    # group_df["X-Y Scheme"] = group_df[mou_col].apply(
+                    #     lambda x: discount.get_slab_amount(x, slabs)
+                    # )
+                    group_df = discount.prepare_mou_group_pivot(df,selected_year, selected_month)
+                    group_df = group_df[
+                        group_df["Material Family"] == material_family
+                    ].copy()
+                    # --- SLAB RESOLUTION ---
+                    group_df["X-Y Scheme"] = group_df["%MOU"].apply(
                         lambda x: discount.get_slab_amount(x, slabs)
                     )
                
@@ -452,116 +470,6 @@ class discount():
         ]
         return max(applicable) if applicable else 0.0
     
-    # Table MOU & SAles on Customer Group Merged
-    @staticmethod
-    def mou_sales_summary(sales_df: pd.DataFrame,selected_year: int,selected_month: int):
-        # Sales Group Data
-        group_cols = ["Regional Office","Sold-to Group","Material Group"]
-        group_df = discount.prepare_group_pivot(sales_df,group_cols)
-        group_df = (group_df
-            .pivot_table(
-                index=["Regional Office", "Sold-to Group"],
-                columns="Material Group",
-                values="Quantity",
-                aggfunc="sum",
-                fill_value=0
-            )
-            .reset_index()
-        )
-        group_df["Sales PE"] = (group_df.get("LLDPE", 0) + group_df.get("HDPE", 0))
-        group_df["Sales PP"] = group_df["PP"]
-        group_df = group_df.drop(["PP","LLDPE","HDPE"], axis=1,errors="ignore")
-        # Month Boundaries
-        month_start = pd.Timestamp(selected_year, selected_month, 1)
-        month_end = pd.Timestamp(
-            selected_year,
-            selected_month,
-            monthrange(selected_year, selected_month)[1]
-        )
-        # Mou Data
-        mou_df = st.session_state["MOU Data"]
-
-        mou_active = mou_df[
-            (mou_df["MOU Start Date"] <= month_end) &
-            (mou_df["MOU End Date"] >= month_start)
-        ]
-        # Merge Data
-        final_df = group_df.merge(
-            mou_active[["Sold-to Group","MOU PP","MOU PE"]],
-            on="Sold-to Group",
-            how="left"
-        )
-        # Fill missing values
-        final_df["MOU PP"] = final_df["MOU PP"].fillna(0)
-        final_df["MOU PE"] = final_df["MOU PE"].fillna(0)
-
-        return final_df
-    
-    # Trying to retain Material Description
-    @staticmethod
-    def mou_sales_summary2(sales_df: pd.DataFrame,selected_year: int,selected_month: int):
-        # Sales Group Data
-        group_cols = ["Regional Office","Sold-to Group","Material Group","Material Description"]
-        group_df = discount.prepare_group_pivot(sales_df,group_cols)
-        # PP descriptions (Material Group == PP)
-        PP_DESC = (
-            group_df.loc[group_df["Material Group"] == "PP", "Material Description"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-
-        # PE descriptions (Material Group in LLDPE, HDPE)
-        PE_DESC = (
-            group_df.loc[group_df["Material Group"].isin(["LLDPE", "HDPE"]), "Material Description"]
-            .dropna()
-            .unique()
-            .tolist()
-        )
-        group_df = (
-        group_df.pivot_table(
-            index=["Regional Office", "Sold-to Group"],
-            columns="Material Description",
-            values="Quantity",
-            aggfunc="sum",
-            fill_value=0
-        )
-        .reset_index()
-    )
-        group_df["Total PP"] = group_df[PP_DESC].sum(axis=1)
-        group_df["Total PE"] = group_df[PE_DESC].sum(axis=1)
-        group_df["Grand Total"] = group_df["Total PP"] + group_df["Total PE"]
-        
-        # Month Boundaries
-        month_start = pd.Timestamp(selected_year, selected_month, 1)
-        month_end = pd.Timestamp(
-            selected_year,
-            selected_month,
-            monthrange(selected_year, selected_month)[1]
-        )
-        # Mou Data
-        mou_df = st.session_state["MOU Data"]
-
-        mou_active = mou_df[
-            (mou_df["MOU Start Date"] <= month_end) &
-            (mou_df["MOU End Date"] >= month_start)
-        ]
-        # Merge Data
-        final_df = group_df.merge(
-            mou_active[["Sold-to Group","MOU PP","MOU PE"]],
-            on="Sold-to Group",
-            how="left"
-        )
-        # Fill missing values
-        final_df["MOU PP"] = final_df["MOU PP"].fillna(0)
-        final_df["MOU PE"] = final_df["MOU PE"].fillna(0)
-
-        # % MOU
-        final_df["%MOU PP"] = ((final_df["Total PP"] / final_df["MOU PP"]*100)
-                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
-        final_df["%MOU PE"] = ((final_df["Total PE"] / final_df["MOU PE"]*100)
-                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
-        return final_df
     
     # Grouping Sales Data
     def prepare_group_pivot(filtered_df: pd.DataFrame, group_cols) -> pd.DataFrame:
@@ -577,42 +485,58 @@ class discount():
             .agg({"Quantity": "sum"})
         )
 
-    def prepare_non_zero_avg_group_pivot(
-    df: pd.DataFrame,
-    scheme_months: list[int],
-    selected_year: int,
-    selected_month: int
-) -> pd.DataFrame:
-        # -----------------------------
-        # 1. Determine fiscal year start
-        # -----------------------------
+    def prepare_mou_group_pivot(df: pd.DataFrame,selected_year: int,selected_month: int):
+        # Current Month Quantity
+
+        current_qty = discount.prepare_group_pivot(df, ["Sold-to Group", "Material Family"])
+        current_qty = current_qty.rename(columns={"Quantity": "Current Month Qty"})
+
+        # Month Boundaries
+        month_start = pd.Timestamp(selected_year, selected_month, 1)
+        month_end = pd.Timestamp(selected_year,selected_month,
+            monthrange(selected_year, selected_month)[1])
+        # Mou Data
+        mou_df = st.session_state["MOU Data"]
+
+        # Flatten MOU DF
+        mou_df = pd.melt(mou_df, id_vars=["Sold-to Party","Sold-to-Party Name","Sold-to Group",
+                               "MOU Start Date","MOU End Date"], 
+                               var_name='Material Family', value_name='MOU Qty')
+
+        mou_active = mou_df[
+                            (mou_df["MOU Start Date"] <= month_end) &
+                            (mou_df["MOU End Date"] >= month_start)]
+        
+        # Merge & Compute %
+        pivot = current_qty.merge(mou_active,
+                                on=["Sold-to Group", "Material Family"],
+                                how="left"
+                            )
+        pivot["MOU Qty"] = pivot["MOU Qty"].fillna(0.0)
+        
+        # % MOU
+        pivot["%MOU"] = ((pivot["Current Month Qty"] / pivot["MOU Qty"]*100)
+                    .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
+
+        return pivot
+
+    def prepare_non_zero_avg_group_pivot(df: pd.DataFrame,scheme_months: list[int],
+                        selected_year: int,selected_month: int) -> pd.DataFrame:
+        
+        # Determine Fiscal Year
+
         if selected_month >= FISCAL_START:
             fiscal_year = selected_year
         else:
             fiscal_year = selected_year - 1
-        
-        # -----------------------------
-        # 2. Normalize material family
-        # -----------------------------
-        def material_family(mg):
-            return "PP" if mg == "PP" else "PE"
 
-        filtered_df = df.copy()
         full_df = st.session_state["Sales Data"].copy()
 
-        filtered_df["Material Family"] = filtered_df["Material Group"].map(material_family)
-        full_df["Material Family"] = full_df["Material Group"].map(material_family)
+        # Current Month Quantity
 
-        # 3. CURRENT MONTH QUANTITY
-        current_qty = (
-        filtered_df
-        .groupby(
-            ["Sold-to Group", "Material Family"],
-            as_index=False
-        )["Quantity"]
-        .sum()
-        .rename(columns={"Quantity": "Current Month Qty"})
-    )
+        current_qty = discount.prepare_group_pivot(df, ["Sold-to Group", "Material Family"])
+        current_qty = current_qty.rename(columns={"Quantity": "Current Month Qty"})
+
         # 4. Build fiscal historical window
         def map_fiscal_year(row):
             return row["Year"] if row["Month"] >= FISCAL_START else row["Year"] - 1
@@ -623,35 +547,29 @@ class discount():
             (full_df["Fiscal Year"] == fiscal_year) &
             (full_df["Month"].isin(scheme_months))
         ]
-        # 5. Monthly aggregation
-        monthly_qty = (
-        history_df
-        .groupby(
-            ["Sold-to Group", "Material Family", "Month"],
-            as_index=False
-        )["Quantity"]
-        .sum()
-    )
-        # 6. NON-ZERO MONTHS AVG
-        non_zero_avg = (
-        monthly_qty[monthly_qty["Quantity"] > 0]
-        .groupby(
-            ["Sold-to Group", "Material Family"],
-            as_index=False
-        )["Quantity"]
-        .mean()
-        .rename(columns={"Quantity": "Non-Zero Avg Qty"})
-    )
-        # 7. Merge metrics
-        pivot = current_qty.merge(
-        non_zero_avg,
-        on=["Sold-to Group", "Material Family"],
-        how="left"
-    )
 
+        # Monthly Quantity Aggregation
+        monthly_qty = discount.prepare_group_pivot(history_df,["Sold-to Group", "Material Family", "Month"])
+
+        # Non-Zero Month Average
+        non_zero_avg = (
+            monthly_qty[monthly_qty["Quantity"] > 0]
+            .groupby(
+                ["Sold-to Group", "Material Family"],
+                as_index=False
+            )["Quantity"]
+            .mean()
+            .rename(columns={"Quantity": "Non-Zero Avg Qty"})
+        )
+
+        # Merge & Compute %
+        pivot = current_qty.merge(non_zero_avg,
+                                on=["Sold-to Group", "Material Family"],
+                                how="left"
+                            )
         pivot["Non-Zero Avg Qty"] = pivot["Non-Zero Avg Qty"].fillna(0.0)
 
-        # % MOU
+        # % Non Zero
         pivot["%Non-Zero Avg"] = ((pivot["Current Month Qty"] / pivot["Non-Zero Avg Qty"]*100)
                     .replace([float("inf"), -float("inf")], 0).fillna(0).round(2))
 

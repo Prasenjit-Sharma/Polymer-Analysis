@@ -83,7 +83,7 @@ with col2:
 
 # MTD Metrics
 # mtd_df = ytd_df[df["Billing Date"].dt.month == 9]
-mtd_df = ytd_df[df["Month"]=="December"]
+mtd_df = ytd_df[df["Month"]=="November"]
 
 
 st.markdown("## Sales Month-To-Date")

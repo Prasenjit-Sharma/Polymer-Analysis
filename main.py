@@ -14,6 +14,8 @@ if "cache_version" not in st.session_state:
     st.session_state.cache_version = 0
 st.session_state["Discount Data"] = discount.read_json_from_drive(st.session_state.cache_version)
 
+# st.write(df.columns)
+
 # Pages
 pages = {
     "Sales": [
