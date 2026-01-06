@@ -311,12 +311,19 @@ with tab_add:
     st.markdown("### Add New Discount")
     # data_to_save={}
     # Material Group Options
+    df = st.session_state["Sales Data"]
     material_group = st.multiselect(
-        "Material Group",
-        ["PP", "LLDPE", "HDPE"],
-        default=["PP", "LLDPE", "HDPE"],
-        key="add_material_group"
-        )
+    "Material Group",
+    df["Material Group"].unique(),
+    default=["PP", "LLDPE", "HDPE"],
+    key="add_material_group"
+    )
+    # material_group = st.multiselect(
+    #     "Material Group",
+    #     ["PP", "LLDPE", "HDPE"],
+    #     default=["PP", "LLDPE", "HDPE"],
+    #     key="add_material_group"
+    #     )
     if isinstance(material_group, str):
         material_group = [material_group]
 
@@ -476,6 +483,10 @@ with tab_add:
             with col2:
                 if basis == "Non-Zero Months Avg%":
                     selected_numbers = scheme_month_selection(discount_option)
+                if basis == "Flat Discount": 
+                    selected_numbers = st.multiselect("Material Description",
+                            df["Material Description"][df['Material Group'].isin(material_group)].unique().tolist(), 
+                            key="mat_desc")
                 else:
                     selected_numbers =[]
 

@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.express as px
 from sidebar import render_sidebar
+import utilities
 
 st.title("Sales Dashboard")
 
@@ -82,4 +83,4 @@ fig = px.sunburst(filtered_df,
 st.plotly_chart(fig, width='stretch')
 
 # Display Dataframe
-st.dataframe(filtered_df)
+utilities.render_excel_pivot(filtered_df,key="sales_dash")

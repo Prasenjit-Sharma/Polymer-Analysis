@@ -2,6 +2,7 @@ import streamlit as st
 from discount_calc import discount
 import pandas as pd
 from calendar import monthrange
+import utilities
 
 st.title("Credit Notes")
 
@@ -74,9 +75,6 @@ if not monthly_discounts:
     st.warning("No discounts applicable for the selected month.")
     st.stop()
 
-# else:
-#     st.write("Monthly Discounts")
-#     st.success(monthly_discounts)
 
 if filtered_df.empty:
     st.warning(
@@ -85,30 +83,22 @@ if filtered_df.empty:
     st.stop()
 
 else:
-    # st.success(
-    # f"Total Records: {len(filtered_df)} | "
-    # f"Total Quantity: {filtered_df['Quantity'].sum():,.0f}")
 
-    df_with_discount = discount.apply_discount(filtered_df,monthly_discounts)
+    df_with_discount = discount.apply_discount(filtered_df,monthly_discounts, selected_year, selected_month)
 
-    st.write("Data with Discount")
-    discount.render_excel_pivot(df_with_discount,"discount_df")
+    discount_pivot = (
+        df_with_discount[["Regional Office", "Sold-to Party","Sold-to-Party Name", "Sold-to Group", "Quantity", "Month Credit Note"]]
+        .groupby(["Regional Office", "Sold-to Party","Sold-to-Party Name","Sold-to Group"], as_index=False)
+        .agg({"Quantity": "sum","Month Credit Note": "sum"}))
+    st.markdown("#### Discount Summary")
+    utilities.render_excel_pivot(discount_pivot,"discount_summary")
 
-    ## Displaying Data with Aggrid
-    # group_cols = ["Regional Office","Sold-to Group","Sold-to-Party Name",
-    #               "Material Group","Material Description",]
-    
-    
-    # sales_agg = discount.build_mou_summary(filtered_df,selected_year,selected_month)
-    # sales_agg = discount.mou_sales_summary2(filtered_df,selected_year,selected_month)
-    # discount.render_excel_pivot(sales_agg, "mou_df")
-    # discount.render_excel_pivot(sales_agg)
+    # Create a toggle widget
+    is_on = st.toggle("Detailed Table")
 
-    # scheme_months =  [4,5,6,7,8,9,10,11,12]
-    # non_zero_pivot = discount.prepare_non_zero_avg_group_pivot(filtered_df,
-    #                             scheme_months,selected_year,selected_month)
-    # discount.render_excel_pivot(non_zero_pivot,"non_zero_df")
+    # Conditionally display content based on the toggle state
+    if is_on:
+        st.markdown("#### Discount Details")
+        utilities.render_excel_pivot(df_with_discount,"discount_detail")
 
-    mou_pivot = discount.prepare_mou_group_pivot(filtered_df,selected_year,selected_month)
-    discount.render_excel_pivot(mou_pivot,"mou")
     
