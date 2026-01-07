@@ -24,9 +24,7 @@ class read_data():
         #Remove Blank Rows and Columns
         df = df.dropna(subset=["Billing Date"])
         df = df.loc[:, ~df.columns.str.contains("Unnamed")]
-        
-        # Keeping Customer ID as string
-        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
+
 
         # Convert Net Billing with commas to Float
         df["Net Value of Billing item"] = (
@@ -40,6 +38,16 @@ class read_data():
         df["Year"] = df["Billing Date"].dt.year
         df["Month"] = df["Billing Date"].dt.month
         df['Month Name'] = df['Billing Date'].dt.month_name()
+
+        # Keeping Customer ID as string
+        df["Sold-to Party"] = df["Sold-to Party"].astype(str)
+        # df["Ship-to Party"] = df["Ship-to Party"].astype(str)
+        # df["Billing Document No."] = df["Billing Document No."].astype(str)
+        # df["Material"] = df["Material"].astype(str)
+        # df["Plant"] = df["Plant"].astype(str)
+        # df["Fiscal Year"] = df["Fiscal Year"].astype(str)
+        # df["Year"] = df["Year"].astype(str)
+        # df["Month"] = df["Month"].astype(str)
         
         # Replace part of string - Material Description
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("HP DURAPOL ", ""))

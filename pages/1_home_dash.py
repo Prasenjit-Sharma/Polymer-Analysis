@@ -101,16 +101,16 @@ with tab_year:
                                         df["Regional Office"].unique())
             filtered_ytd_df = ytd_df[ytd_df["Regional Office"].isin(select_region)]
         with col2:
-            select_dca = st.multiselect("DCA", filtered_ytd_df["Plant Description"].unique(),
-                                        filtered_ytd_df["Plant Description"].unique())
+            select_dca = st.multiselect("DCA", filtered_ytd_df["Plant Description"].unique())
+            if not select_dca: select_dca = filtered_ytd_df["Plant Description"].unique()
             filtered_ytd_df = filtered_ytd_df[filtered_ytd_df["Plant Description"].isin(select_dca)]
         with col3:
-            select_matfamily = st.multiselect("Material Family", filtered_ytd_df["Material Family"].unique(),
-                                        filtered_ytd_df["Material Family"].unique())
+            select_matfamily = st.multiselect("Material Family", filtered_ytd_df["Material Family"].unique())
+            if not select_matfamily: select_matfamily = filtered_ytd_df["Material Family"].unique()
             filtered_ytd_df = filtered_ytd_df[filtered_ytd_df["Material Family"].isin(select_matfamily)]
         with col4:
-            select_matgroup = st.multiselect("Material Group", filtered_ytd_df["Material Group"].unique(),
-                                        filtered_ytd_df["Material Group"].unique())
+            select_matgroup = st.multiselect("Material Group", filtered_ytd_df["Material Group"].unique())
+            if not select_matgroup: select_matgroup = filtered_ytd_df["Material Group"].unique()
             filtered_ytd_df = filtered_ytd_df[filtered_ytd_df["Material Group"].isin(select_matgroup)]
     
     with st.container(border=True):
@@ -121,7 +121,7 @@ with tab_year:
             st.plotly_chart(fig, width='stretch',key="ytd7")
 
         with col2:
-            fig = utilities.draw_histogram_month_quantity(df, color="Plant Description", title="Monthly Quantity")
+            fig = utilities.draw_histogram_month_quantity(filtered_ytd_df, color="Plant Description", title="Monthly Quantity")
             st.plotly_chart(fig, width='stretch',key="ytd8")
 
         # Material Family
@@ -130,7 +130,7 @@ with tab_year:
             st.plotly_chart(fig, width='stretch',key="ytd9")
 
         with col2:
-            fig = utilities.draw_histogram_month_quantity(df, color="Material Family", title="Monthly Quantity")
+            fig = utilities.draw_histogram_month_quantity(filtered_ytd_df, color="Material Family", title="Monthly Quantity")
             st.plotly_chart(fig, width='stretch',key="ytd10")
 
         # Material Group
@@ -139,7 +139,7 @@ with tab_year:
             st.plotly_chart(fig, width='stretch',key="ytd11")
 
         with col2:
-            fig = utilities.draw_histogram_month_quantity(df, color="Material Group", title="Monthly Quantity")
+            fig = utilities.draw_histogram_month_quantity(filtered_ytd_df, color="Material Group", title="Monthly Quantity")
             st.plotly_chart(fig, width='stretch',key="ytd12")
         
         # Material Description
@@ -148,7 +148,7 @@ with tab_year:
             st.plotly_chart(fig, width='stretch',key="ytd13")
 
         with col2:
-            fig = utilities.draw_histogram_month_quantity(df, color="Material Description", title="Monthly Quantity")
+            fig = utilities.draw_histogram_month_quantity(filtered_ytd_df, color="Material Description", title="Monthly Quantity")
             st.plotly_chart(fig, width='stretch',key="ytd14")
     # Sales Tables
     col1, col2 = st.columns(2)
@@ -171,7 +171,6 @@ with tab_year:
 
 with tab_month:
     # MTD Metrics
-    # mtd_df = ytd_df[df["Billing Date"].dt.month == 9]
     mtd_df = ytd_df[(df["Month Name"]==display_month) & (df["Year"]==display_year)]
 
 
@@ -253,15 +252,18 @@ with tab_month:
 
     with st.container(border=True):
         st.markdown("#### Daily Upliftment")
-        col1,col2 = st.columns(2)
+        col1,col2,col3 = st.columns(3)
         with col1:
             select_region = st.multiselect("Region", mtd_df["Regional Office"].unique(),
                                         mtd_df["Regional Office"].unique(), key="mtd_8")
             filtered_mtd_df = mtd_df[mtd_df["Regional Office"].isin(select_region)]
-            
         with col2:
-            select_dca = st.multiselect("DCA", filtered_mtd_df["Plant Description"].unique(),
-                                        filtered_mtd_df["Plant Description"].unique(), key="mtd_9")
+            select_state = st.multiselect("State", mtd_df["Plant Reg State"].unique(), key="mtd_8a")
+            if not select_state: select_state = mtd_df["Plant Reg State"].unique()
+            filtered_mtd_df = mtd_df[mtd_df["Plant Reg State"].isin(select_state)]
+        with col3:
+            select_dca = st.multiselect("DCA", filtered_mtd_df["Plant Description"].unique(), key="mtd_9")
+            if not select_dca: select_dca = filtered_mtd_df["Plant Description"].unique()
             filtered_mtd_df = filtered_mtd_df[filtered_mtd_df["Plant Description"].isin(select_dca)]
         # Daily Material Description
         fig = utilities.draw_histogram_bar(filtered_mtd_df, x=['Billing Date'], y='Quantity',
@@ -362,17 +364,17 @@ with tab_daily:
             st.plotly_chart(fig, width='stretch',key="day4")
 
         with col2:
-            fig = utilities.draw_histogram_bar(mtd_df, x=['Regional Office'], y='Quantity',
+            fig = utilities.draw_histogram_bar(day_df, x=['Regional Office'], y='Quantity',
                     color='Material Family')
             st.plotly_chart(fig,key="day5")
 
         with col3:
-            fig = utilities.draw_histogram_bar(mtd_df, x=['Regional Office'], y='Quantity',
+            fig = utilities.draw_histogram_bar(day_df, x=['Regional Office'], y='Quantity',
                     color='Material Group')
             st.plotly_chart(fig,key="day6")
         
         with col4:
-            fig = utilities.draw_histogram_bar(mtd_df, x=['Regional Office'], y='Quantity',
+            fig = utilities.draw_histogram_bar(day_df, x=['Regional Office'], y='Quantity',
                     color='Material Description')
             st.plotly_chart(fig,key="day7")   
 
@@ -401,8 +403,8 @@ with tab_daily:
             filtered_day_df = day_df[day_df["Regional Office"].isin(select_region)]
             
         with col2:
-            select_dca = st.multiselect("DCA", filtered_day_df["Plant Description"].unique(),
-                                        filtered_day_df["Plant Description"].unique(), key="day12")
+            select_dca = st.multiselect("DCA", filtered_day_df["Plant Description"].unique(), key="day12")
+            if not select_dca: select_dca= filtered_day_df["Plant Description"].unique()
             filtered_day_df = filtered_day_df[filtered_day_df["Plant Description"].isin(select_dca)]
         # Daily Material Description
         fig = utilities.draw_histogram_bar(filtered_day_df, x=['Billing Date'], y='Quantity',
