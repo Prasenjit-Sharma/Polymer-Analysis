@@ -2,16 +2,17 @@ import streamlit as st
 import plotly.express as px
 from sidebar import render_sidebar
 import utilities
+from discount_calc import discount
 
 st.title("Sales Dashboard")
 
 df = st.session_state["Sales Data"]
-render_sidebar(df)
+filtered_df = render_sidebar(df)
 
-filtered_df = df[
-    (df["Billing Date"].dt.date >= st.session_state["start_date"]) &
-    (df["Billing Date"].dt.date <= st.session_state["end_date"])
-]
+# filtered_df = df[
+#     (df["Billing Date"].dt.date >= st.session_state["start_date"]) &
+#     (df["Billing Date"].dt.date <= st.session_state["end_date"])
+# ]
 
 # Metrics
 total_quantity_sum = filtered_df['Quantity'].sum()/1000
@@ -20,8 +21,7 @@ cols = st.columns(len(sum_by_group)+1)
 
 with cols[0]:
     # Display Total Quantity
-    st.metric(label="Total Quantity", value=f"{total_quantity_sum:,.2f} KT") 
-
+    st.metric(label="Total Quantity (KT)", value=f"{total_quantity_sum:,.2f}") 
 
 for index, row in sum_by_group.iterrows():
     with cols[index+1]:
@@ -29,58 +29,115 @@ for index, row in sum_by_group.iterrows():
         value_display = f"{row['Quantity']:,.0f}"
         
         st.metric(
-            label=f"{row['Material Group']}", 
+            label=f"{row['Material Group']} (MT)", 
             value=value_display
         )
-# Column for Charts
-col1, col2,col3 = st.columns(3)
-with col1:
-    fig = px.pie(filtered_df, values='Quantity',names = 'Regional Office', title="Region Volumes")
-    fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
-    fig.update_layout(showlegend=False)
-    st.plotly_chart(fig, width='stretch')
 
-with col2:
-    fig = px.histogram(filtered_df, x=['Regional Office'], y='Quantity',
-             color='Material Group', barmode='group',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="")
-    st.plotly_chart(fig)
-
-with col3:
-    fig = px.histogram(filtered_df, x='Regional Office', y='Quantity',
-             color='Material Description',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="")
-    st.plotly_chart(fig)
-
-col1, col2, col3 = st.columns(3)
-with col1:
-    fig = px.pie(filtered_df, values='Quantity',names = 'Plant Reg State', title="State Volumes")
-    fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value} (%{percent})')
-    fig.update_layout(showlegend=False)
-    st.plotly_chart(fig)
-with col2:
-    fig = px.histogram(filtered_df, x='Plant Reg State', y='Quantity',
-             color='Material Group', barmode='group',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="", showlegend=False)
-    st.plotly_chart(fig)
-
-with col3:
-    fig = px.histogram(filtered_df, x='Plant Reg State', y='Quantity',
-             color='Material Description',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.8,xanchor="center"))
+# Overall Charts
+with st.container(border=True):
+    col1, col2, col3= st.columns(3, gap="small")
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Family', title="Material Family")
+        st.plotly_chart(fig, width='stretch',key="ytd1")
+    with col2:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Description', title="Material Description")
+        st.plotly_chart(fig, width='stretch',key="ytd2")
+    with col3:
+        fig = utilities.draw_sunburst(filtered_df, 
+                        path=['Regional Office', 'Material Family','Material Group','Material Description'], 
+                        values='Quantity',
+                        title='Sales Distribution',
+                        )
+        st.plotly_chart(fig, width='stretch',key="ytd3")
     
-    fig.update_layout(xaxis_title="",yaxis_title="", showlegend=False)
-    st.plotly_chart(fig)
+# Regional
+with st.container(border=True):
+    col1, col2, col3 = st.columns([2,2,3], gap="small")
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Regional Office', title="Region Volumes")
+        st.plotly_chart(fig, width='stretch',key="ytd4")
 
-fig = px.sunburst(filtered_df, 
-                    path=['Plant Reg State', 'Material Group','Material Description'], 
-                    values='Quantity',
-                    title='Sales Distribution',
-                    )
-st.plotly_chart(fig, width='stretch')
+    with col2:
+        fig = utilities.draw_histogram_bar(filtered_df, x=['Regional Office'], y='Quantity',
+                color='Material Family')
+        st.plotly_chart(fig,key="ytd5")
 
-# Display Dataframe
-utilities.render_excel_pivot(filtered_df,key="sales_dash")
+    with col3:
+        fig = utilities.draw_histogram_bar(filtered_df, x=['Regional Office'], y='Quantity',
+                color='Material Group')
+        st.plotly_chart(fig,key="ytd6")
+
+with st.container(border=True):
+    col1, col2, col3 = st.columns([1,2, 2], gap="small")
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Plant Reg State', title="Plant Volumes")
+        st.plotly_chart(fig, width='stretch', key="ytd_5")
+
+    with col2:
+        fig = utilities.draw_histogram_bar(filtered_df, x=['Plant Reg State'], y='Quantity',
+                color='Material Family')
+        st.plotly_chart(fig, key="ytd_6")
+    
+    with col3:  
+        fig = utilities.draw_histogram_bar(filtered_df, x=['Plant Reg State'], y='Quantity',
+                color='Material Description')
+        st.plotly_chart(fig, key="ytd_7")        
+
+
+
+with st.container(border=True):
+    col1, col2 = st.columns([1,2])
+    # Plant Description
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Plant Description', title="DCA Volumes")
+        st.plotly_chart(fig, width='stretch',key="ytd7")
+
+    with col2:
+        fig = utilities.draw_histogram_month_quantity(filtered_df, color="Plant Description", title="Monthly Quantity")
+        st.plotly_chart(fig, width='stretch',key="ytd8")
+
+    # Material Family
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Family', title="Material Category")
+        st.plotly_chart(fig, width='stretch',key="ytd9")
+
+    with col2:
+        fig = utilities.draw_histogram_month_quantity(filtered_df, color="Material Family", title="Monthly Quantity")
+        st.plotly_chart(fig, width='stretch',key="ytd10")
+
+    # Material Group
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Group', title="Material Group")
+        st.plotly_chart(fig, width='stretch',key="ytd11")
+
+    with col2:
+        fig = utilities.draw_histogram_month_quantity(filtered_df, color="Material Group", title="Monthly Quantity")
+        st.plotly_chart(fig, width='stretch',key="ytd12")
+    
+    # Material Description
+    with col1:
+        fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Description', title="Material Description")
+        st.plotly_chart(fig, width='stretch',key="ytd13")
+
+    with col2:
+        fig = utilities.draw_histogram_month_quantity(filtered_df, color="Material Description", title="Monthly Quantity")
+        st.plotly_chart(fig, width='stretch',key="ytd14")
+    
+    # Table
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        is_on_sales = st.toggle("Customer Sales Table")
+    with col2:
+        is_on_detail = st.toggle("Detailed Sales Table")
+    
+    if is_on_sales:
+        st.markdown("#### Customer Sales Table")
+        sales_pivot = discount.prepare_group_pivot(filtered_df,
+                            ["Regional Office", "Sold-to Party","Sold-to-Party Name","Sold-to Group","Material Family",
+                             "Material Group","Material Description"])
+        utilities.render_excel_pivot(sales_pivot,"pivot_data")
+    
+    if is_on_detail:
+        st.markdown("#### Detailed Sales Table")
+        utilities.render_excel_pivot(filtered_df,"details_data")

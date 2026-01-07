@@ -159,10 +159,8 @@ with tab_year:
     
     if is_on_sales:
         st.markdown("#### Customer Sales Table")
-        sales_pivot = (
-            filtered_ytd_df[["Regional Office", "Sold-to Group", "Quantity"]]
-            .groupby(["Regional Office","Sold-to Group"], as_index=False)
-            .agg({"Quantity": "sum"}))
+        sales_pivot = discount.prepare_group_pivot(filtered_ytd_df,
+                            ["Regional Office", "Sold-to Group"])
         utilities.render_excel_pivot(sales_pivot,"sales_ytd")
 
     if is_on_detail:

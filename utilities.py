@@ -47,6 +47,7 @@ def prepare_df_for_aggrid(df, columns_to_convert=None):
             df_copy[col] = df_copy[col].apply(lambda x: str(int(float(x))) if pd.notna(x) else '')
     
     return df_copy
+
 # Display Aggrid view of Group Pivot
 def render_excel_pivot(df,key):
     df_copy = df.copy()
