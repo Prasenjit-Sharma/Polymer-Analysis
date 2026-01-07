@@ -1,7 +1,18 @@
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 import pandas as pd
+import plotly.express as px
 
 FISCAL_START = 4
+
+month_order = ["January", "February", "March", "April", "May", "June", 
+               "July", "August", "September", "October", "November", "December"]
+
+def latest_data (df):
+    display_year = df.iloc[-1]['Year']
+    display_month = df.iloc[-1]['Month Name']
+    display_month_no = month_order.index(display_month)+1
+    return display_year,display_month,display_month_no
+
 
 def enforce_string_ids(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     for col in cols:
@@ -67,3 +78,36 @@ def render_excel_pivot(df,key):
         update_mode="NO_UPDATE",
         key=key
     )
+
+def draw_pie(df, values, names, title):
+    fig = px.pie(df, values=values,names = names, title=title)
+    fig.update_traces(texttemplate='<b>%{label}</b>: <br>%{value:.0f} (%{percent:.1%})')
+    fig.update_layout(showlegend=False)
+    return fig
+
+def draw_sunburst(df,path,values,title):
+    fig = px.sunburst(df, path=path, values=values, title=title)
+    return fig
+
+def draw_histogram_month_quantity(df, color, title):
+    fig = px.histogram(
+            df.sort_values(by='Month Name'),
+            x="Month Name",
+            y="Quantity",
+            # pattern_shape="Material Group",
+            color=color,
+            title=title,
+            # barmode="group", # Groups the bars side-by-side
+            category_orders={"Month Name": month_order},
+            text_auto=True
+            )
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
+    fig.update_layout(xaxis_title="",yaxis_title="")
+    return fig
+
+def draw_histogram_bar(df,x,y,color):
+    fig = px.histogram(df, x=x, y=y,
+                    color=color, barmode='group',text_auto=True)
+    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
+    fig.update_layout(xaxis_title="",yaxis_title="")
+    return fig

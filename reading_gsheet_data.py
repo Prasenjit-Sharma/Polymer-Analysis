@@ -39,6 +39,7 @@ class read_data():
         df["Billing Date"] = pd.to_datetime(df["Billing Date"],dayfirst=True, format="mixed")
         df["Year"] = df["Billing Date"].dt.year
         df["Month"] = df["Billing Date"].dt.month
+        df['Month Name'] = df['Billing Date'].dt.month_name()
         
         # Replace part of string - Material Description
         df["Material Description"] = df["Material Description"].apply(lambda x: x.replace("HP DURAPOL ", ""))
