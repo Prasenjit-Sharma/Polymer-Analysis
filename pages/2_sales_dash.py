@@ -7,12 +7,10 @@ from discount_calc import discount
 st.title("Sales Dashboard")
 
 df = st.session_state["Sales Data"]
-filtered_df = render_sidebar(df)
-
-# filtered_df = df[
-#     (df["Billing Date"].dt.date >= st.session_state["start_date"]) &
-#     (df["Billing Date"].dt.date <= st.session_state["end_date"])
-# ]
+# Sidebar
+columns_to_filter = ["Regional Office","Plant Reg State","Plant Description",
+                             "Material Family", "Material Group", "Material Description"]
+filtered_df = render_sidebar(df, columns_to_filter)
 
 # Metrics
 total_quantity_sum = filtered_df['Quantity'].sum()/1000
@@ -133,9 +131,7 @@ with st.container(border=True):
     
     if is_on_sales:
         st.markdown("#### Customer Sales Table")
-        sales_pivot = discount.prepare_group_pivot(filtered_df,
-                            ["Regional Office", "Sold-to Party","Sold-to-Party Name","Sold-to Group","Material Family",
-                             "Material Group","Material Description"])
+        sales_pivot = discount.build_sales_summary(filtered_df)
         utilities.render_excel_pivot(sales_pivot,"pivot_data")
     
     if is_on_detail:

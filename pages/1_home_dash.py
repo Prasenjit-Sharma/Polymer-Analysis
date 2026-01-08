@@ -21,7 +21,7 @@ tab_daily, tab_month, tab_year = st.tabs(
 display_year, display_month, display_month_no = utilities.latest_data(df)
 
 with tab_year:
-    ytd_df = df[df["Fiscal Year"]==display_year]
+    ytd_df = df[df["Year"]==display_year]
 
     # Metrics
     total_quantity_sum = ytd_df['Quantity'].sum()/1000
@@ -169,7 +169,7 @@ with tab_year:
 
 with tab_month:
     # MTD Metrics
-    mtd_df = ytd_df[(df["Month Name"]==display_month) & (df["Year"]==display_year)]
+    mtd_df = df[(df["Month Name"]==display_month) & (df["Year"]==display_year)]
 
 
     st.markdown(f"#### Sales Month-To-Date {display_month}-{display_year}")
@@ -442,7 +442,8 @@ with tab_daily:
             mou_sales_pivot_day = discount.prepare_mou_group_pivot(day_df,display_year,display_month_no).fillna(0)
             # Merge Sale, Non-Zero and MOU
             mtd_sales_pivot = discount.build_sales_mou_summary(day_df,mou_sales_pivot_day,non_zero_pivot_day)
-            utilities.render_excel_pivot(mtd_sales_pivot,"day15")
+            day_sales_pivot = discount.build_sales_summary(day_df)
+            utilities.render_excel_pivot(day_sales_pivot,"day15")
 
         if is_on_detail:
             st.markdown("#### Detailed Sales Table")

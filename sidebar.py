@@ -1,12 +1,19 @@
 import streamlit as st
 import pandas as pd
 
+def apply_multiselect_filters(df, columns):
+    filtered_df = df.copy()
+    
+    for col in columns:
+        selected = st.multiselect(col, filtered_df[col].unique())
+        if not selected:
+            selected = filtered_df[col].unique()
+        filtered_df = filtered_df[filtered_df[col].isin(selected)]
+    
+    return filtered_df
 
-def render_sidebar(original_df=None):
-    """
-    Renders a common sidebar across all pages.
-    Optionally accepts a DataFrame for filters.
-    """
+def render_sidebar(original_df=None, columns_to_filter=["Regional Office"]):
+
     df = original_df.copy()
 
     with st.sidebar:
@@ -29,35 +36,8 @@ def render_sidebar(original_df=None):
         (df["Billing Date"].dt.date >= start_date) &
         (df["Billing Date"].dt.date <= end_date)]
 
-        # Regional Office
-        select_region = st.multiselect("Region", filtered_df["Regional Office"].unique())
-        if not select_region: select_region= filtered_df["Regional Office"].unique()
-        filtered_df = filtered_df[filtered_df["Regional Office"].isin(select_region)]
+        filtered_df = apply_multiselect_filters(filtered_df, columns_to_filter)
 
-        # State
-        select_state = st.multiselect("State", filtered_df["Plant Reg State"].unique())
-        if not select_state: select_state = filtered_df["Plant Reg State"].unique()
-        filtered_df = filtered_df[filtered_df["Plant Reg State"].isin(select_state)]
-
-        # DCA
-        select_dca = st.multiselect("DCA", filtered_df["Plant Description"].unique())
-        if not select_dca: select_dca = filtered_df["Plant Description"].unique()
-        filtered_df = filtered_df[filtered_df["Plant Description"].isin(select_dca)]
-
-        # Material Family
-        select_matfamily = st.multiselect("Material Family", filtered_df["Material Family"].unique())
-        if not select_matfamily: select_matfamily = filtered_df["Material Family"].unique()
-        filtered_df = filtered_df[filtered_df["Material Family"].isin(select_matfamily)]
-
-        # Material Group
-        select_matgroup = st.multiselect("Material Group", filtered_df["Material Group"].unique())
-        if not select_matgroup: select_matgroup = filtered_df["Material Group"].unique()
-        filtered_df = filtered_df[filtered_df["Material Group"].isin(select_matgroup)]
-
-        # Material Description
-        select_descgroup = st.multiselect("Material Description", filtered_df["Material Description"].unique())
-        if not select_descgroup: select_descgroup = filtered_df["Material Description"].unique()
-        filtered_df = filtered_df[filtered_df["Material Description"].isin(select_descgroup)]
 
     return filtered_df
 

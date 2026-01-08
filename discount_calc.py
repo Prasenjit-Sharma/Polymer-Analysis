@@ -830,3 +830,42 @@ class discount():
         final_df = final_df[fixed_cols + other_cols]
 
         return final_df
+    
+    def build_sales_summary(df: pd.DataFrame)-> pd.DataFrame:
+        # SALES AGGREGATION
+        sales_agg = (
+                df.groupby(["Regional Office","Sold-to Group","Material Family",
+                        "Material Group","Material Description",],as_index=False)["Quantity"].sum())
+
+        # FAMILY TOTALS (PP / PE)
+
+        family_totals = (sales_agg.groupby(["Regional Office", "Sold-to Group", "Material Family"],
+                as_index=False)["Quantity"].sum())
+
+        family_totals = family_totals.pivot(
+                                        index=["Regional Office", "Sold-to Group"],
+                                        columns="Material Family",
+                                        values="Quantity").fillna(0.0)
+
+        family_totals = family_totals.rename(columns={"PP": "Total PP Qty","PE": "Total PE Qty"}).reset_index()
+
+        # PIVOT SALES (DETAIL LEVEL)
+
+        sales_pivot = sales_agg.pivot_table(
+                                index=["Regional Office", "Sold-to Group"],
+                                columns=["Material Family", "Material Group", "Material Description"],
+                                values="Quantity",
+                                aggfunc="sum",
+                                fill_value=0.0)
+
+        # Flatten columns
+        sales_pivot.columns = [f"{fam} | {grp} | {desc}"
+            for fam, grp, desc in sales_pivot.columns]
+        sales_pivot = sales_pivot.reset_index()
+
+        # 6. MERGE EVERYTHING
+
+        sales_pivot = (sales_pivot
+            .merge(family_totals, on=["Regional Office", "Sold-to Group"], how="left"))
+
+        return sales_pivot
