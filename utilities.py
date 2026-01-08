@@ -9,15 +9,22 @@ from mitosheet.streamlit.v1 import spreadsheet
 
 FISCAL_START = 4
 
-month_order = ["January", "February", "March", "April", "May", "June", 
-               "July", "August", "September", "October", "November", "December"]
+month_order = ["April", "May", "June", 
+               "July", "August", "September", "October", "November", "December","January", "February", "March"]
 
 def latest_data (df):
     display_year = df.iloc[-1]['Year']
     display_month = df.iloc[-1]['Month Name']
-    display_month_no = month_order.index(display_month)+1
-    return display_year,display_month,display_month_no
+    display_month_no = df.iloc[-1]['Month']
+    display_fiscal_year = get_fiscal_year(cal_month=display_month_no, cal_year=display_year)
+    return display_year,display_fiscal_year, display_month,display_month_no
 
+def get_fiscal_year(cal_month,cal_year):
+        if cal_month >= FISCAL_START:
+            fiscal_year = cal_year
+        else:
+            fiscal_year = cal_year - 1
+        return fiscal_year
 
 def enforce_string_ids(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
     for col in cols:
@@ -123,7 +130,9 @@ def draw_sunburst(df,path,values,title):
     fig = px.sunburst(df, path=path, values=values, title=title)
     return fig
 
-def draw_histogram_month_quantity(df, color, title):
+def draw_histogram_month_quantity(df, color = None, title=None):
+    # Get only months that exist in the data, in the correct order
+    months_in_data = [m for m in month_order if m in df['Month Name'].unique()]
     fig = px.histogram(
             df.sort_values(by='Month Name'),
             x="Month Name",
@@ -132,18 +141,26 @@ def draw_histogram_month_quantity(df, color, title):
             color=color,
             title=title,
             # barmode="group", # Groups the bars side-by-side
-            category_orders={"Month Name": month_order},
+            category_orders={"Month Name": months_in_data},
             text_auto=True
             )
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="")
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=-0.4, xanchor="center", x=0.5),
+        xaxis_title="",
+        yaxis_title="",
+        margin=dict(l=50, r=50, t=80, b=100)  # Adjust left margin
+    )
     return fig
 
 def draw_histogram_bar(df,x,y,color):
     fig = px.histogram(df, x=x, y=y,
                     color=color, barmode='group',text_auto=True)
-    fig.update_layout(legend=dict(orientation="h", yanchor="bottom",y=-0.4,xanchor="center"))
-    fig.update_layout(xaxis_title="",yaxis_title="")
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=-0.4, xanchor="center", x=0.5),
+        xaxis_title="",
+        yaxis_title="",
+        margin=dict(l=50, r=50, t=80, b=100)  # Adjust left margin
+    )
     return fig
 
 def download_excel(df, filename='data.xlsx', button_label='📥 Download Excel', key='download_button'):
@@ -203,15 +220,19 @@ def df_actions(df, filename='data.xlsx', key='df_actions'):
         spreadsheet(df, key='show_mito_{key}')
 
 def explore_with_mito(df, key='mito_explorer'):
-    """
-    Quick data exploration with Mito - no saving needed
-    Just for rough work, filtering, pivoting, etc.
-    
-    Parameters:
-    df: DataFrame to explore
-    key: unique key for the component
-    """
     st.write("### 🔍 Data Explorer (Mito)")
     
     # Just open Mito, don't capture returns if not needed
     spreadsheet(df, key=key)
+
+def apply_common_styles(title):
+    st.set_page_config(layout="wide") 
+    st.markdown(f"### {title}")
+    st.markdown("""
+        <style>
+        .block-container {
+            padding-top: 3rem !important;
+            padding-bottom: 3rem !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)

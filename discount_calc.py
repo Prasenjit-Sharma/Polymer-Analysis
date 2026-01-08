@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 from calendar import monthrange
 import numpy as np
+import utilities
 
 
 FISCAL_START = 4  # April
@@ -527,12 +528,6 @@ class discount():
         ]
         return max(applicable) if applicable else 0.0
     
-    def get_fiscal_year(selected_month,selected_year):
-        if selected_month >= FISCAL_START:
-            fiscal_year = selected_year
-        else:
-            fiscal_year = selected_year - 1
-        return fiscal_year
     
     # Grouping Sales Data
     def prepare_group_pivot(filtered_df: pd.DataFrame, group_cols) -> pd.DataFrame:
@@ -587,7 +582,7 @@ class discount():
                         selected_year: int,selected_month: int) -> pd.DataFrame:
         
         # Determine Fiscal Year
-        fiscal_year = discount.get_fiscal_year(selected_month,selected_year)
+        fiscal_year = utilities.get_fiscal_year(selected_month,selected_year)
 
         full_df = st.session_state["Sales Data"].copy()
         # st.write(full_df)
@@ -637,7 +632,7 @@ class discount():
 
     def prepare_annual_quantity_pivot(df, selected_year: int,selected_month: int):
         mou_df = discount.prepare_mou_group_pivot(df,selected_year,selected_month)
-        fiscal_year = discount.get_fiscal_year(selected_month,selected_year)
+        fiscal_year = utilities.get_fiscal_year(selected_month,selected_year)
         fiscal_df = st.session_state["Sales Data"].copy()
         fiscal_df = fiscal_df[fiscal_df["Fiscal Year"] == fiscal_year]
 
@@ -831,19 +826,20 @@ class discount():
 
         return final_df
     
-    def build_sales_summary(df: pd.DataFrame)-> pd.DataFrame:
+    def build_sales_summary(df: pd.DataFrame, index_list)-> pd.DataFrame:
+        full_list = index_list + ["Material Family", "Material Group", "Material Description"]
+        agg_list = index_list + ["Material Family"]
         # SALES AGGREGATION
         sales_agg = (
-                df.groupby(["Regional Office","Sold-to Group","Material Family",
-                        "Material Group","Material Description",],as_index=False)["Quantity"].sum())
+                df.groupby(full_list,as_index=False)["Quantity"].sum())
 
         # FAMILY TOTALS (PP / PE)
 
-        family_totals = (sales_agg.groupby(["Regional Office", "Sold-to Group", "Material Family"],
+        family_totals = (sales_agg.groupby(agg_list,
                 as_index=False)["Quantity"].sum())
 
         family_totals = family_totals.pivot(
-                                        index=["Regional Office", "Sold-to Group"],
+                                        index=index_list,
                                         columns="Material Family",
                                         values="Quantity").fillna(0.0)
 
@@ -852,7 +848,7 @@ class discount():
         # PIVOT SALES (DETAIL LEVEL)
 
         sales_pivot = sales_agg.pivot_table(
-                                index=["Regional Office", "Sold-to Group"],
+                                index=index_list,
                                 columns=["Material Family", "Material Group", "Material Description"],
                                 values="Quantity",
                                 aggfunc="sum",
@@ -866,6 +862,12 @@ class discount():
         # 6. MERGE EVERYTHING
 
         sales_pivot = (sales_pivot
-            .merge(family_totals, on=["Regional Office", "Sold-to Group"], how="left"))
+            .merge(family_totals, on=index_list, how="left"))
+        
+        if ("Month Name" in sales_pivot.columns):
+            # Create a mapping for sorting
+            month_map = {month: i for i, month in enumerate(utilities.month_order)}
+            sales_pivot['month_sort'] = sales_pivot['Month Name'].map(month_map)
+            sales_pivot = sales_pivot.sort_values(["Fiscal Year", "month_sort"]).drop('month_sort', axis=1).reset_index(drop=True)
 
         return sales_pivot

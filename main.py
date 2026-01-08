@@ -5,6 +5,7 @@ from discount_calc import discount
 
 st.set_page_config(layout="wide") 
 
+
 # Read Sales & Discount Data
 st.session_state["Sales Data"] = df = read_data.fetch_sales_data()
 st.session_state["CMR Data"] = read_data.fetch_cmr_data()
@@ -23,11 +24,11 @@ pages = {
         st.Page("pages/2_sales_dash.py", title="Dashboard"),
     ],
     "Customer": [
-        st.Page("pages/3_cust_dash.py", title="Master Record"),
+        st.Page("pages/3_cust_dash.py", title="Customer Performance"),
         st.Page("pages/4_cust_avg_price.py", title="Avg. Price"),
     ],
-    "Inventory": [
-        st.Page("pages/5_inventory_dash.py", title="Inventory Record"),
+    "DCA": [
+        st.Page("pages/5_dca_dash.py", title="DCA Performance"),
         
     ],
     "Finance": [

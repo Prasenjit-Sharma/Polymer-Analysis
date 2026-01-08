@@ -4,14 +4,15 @@ from sidebar import render_sidebar
 import utilities
 from discount_calc import discount
 
-utilities.apply_common_styles("Customer Performance")
+utilities.apply_common_styles("DCA Performance")
 
 filtered_df = st.session_state["Sales Data"]
+
 # Last Data Available
 display_year, display_fy, display_month, display_month_no = utilities.latest_data(filtered_df)
 filtered_df = utilities.prepare_df_for_aggrid(filtered_df, columns_to_convert=["Fiscal Year"])
 
-# Customer Filters
+# Selections
 with st.container(border=True):
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -23,17 +24,16 @@ with st.container(border=True):
         if not select_region: select_region = filtered_df["Regional Office"].unique()
         filtered_df = filtered_df[filtered_df["Regional Office"].isin(select_region)]
     with col3:
-        select_custgr = st.multiselect("Customer Group", filtered_df["Sold-to Group"].unique())
-        if not select_custgr: select_custgr = filtered_df["Sold-to Group"].unique()
-        filtered_df = filtered_df[filtered_df["Sold-to Group"].isin(select_custgr)]
+        select_state = st.multiselect("State", filtered_df["Plant Reg State"].unique())
+        if not select_state: select_state = filtered_df["Plant Reg State"].unique()
+        filtered_df = filtered_df[filtered_df["Plant Reg State"].isin(select_state)]
     with col4:
-        select_cust = st.multiselect("Customer", filtered_df["Sold-to-Party Name"].unique())
-        if not select_cust: select_cust = filtered_df["Sold-to-Party Name"].unique()
-        filtered_df = filtered_df[filtered_df["Sold-to-Party Name"].isin(select_cust)]
+        select_dca = st.multiselect("DCA", filtered_df["Plant Description"].unique())
+        if not select_dca: select_dca = filtered_df["Plant Description"].unique()
+        filtered_df = filtered_df[filtered_df["Plant Description"].isin(select_dca)]
 
 # Sidebar
-columns_to_filter = ["Billing Date","Material Family", "Material Group", "Material Description",
-                     "Plant Description",]
+columns_to_filter = ["Billing Date","Material Family", "Material Group", "Material Description"]
 filtered_df = render_sidebar(filtered_df, columns_to_filter)
 
 # Tabs
@@ -81,6 +81,7 @@ with st.container(border=True):
 
     if is_on_mon_sales:
         st.markdown("#### Monthly Summary")
+        # sales_pivot = discount.build_sales_summary_month(filtered_df)
         sales_pivot = discount.build_sales_summary(filtered_df, ["Fiscal Year", "Month Name"])
         utilities.render_excel_pivot(sales_pivot,"pivot_cus")
 

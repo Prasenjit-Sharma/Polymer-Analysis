@@ -4,6 +4,7 @@ import pandas as pd
 from discount_calc import discount
 from datetime import date
 from streamlit_calendar import calendar
+import utilities
 
 
 DISCOUNT_OPTIONS = ["X-Y Scheme","Hidden Discount", "Early Bird", "Price Protection", "Price Change",
@@ -262,12 +263,7 @@ def slab_discounts(key_prefix, basis):
         )
     return discount_amount
 
-st.set_page_config(
-    page_title="Monthly Schemes",
-    layout="wide"
-)
-
-st.subheader("Monthly Schemes")
+utilities.apply_common_styles("Monthly Schemes")
 
 tab_view, tab_add, tab_modify, tab_delete = st.tabs(
     ["📄 View Discounts", "➕ Add Discount", "✏️ Modify Discount", "🗑️ Delete Discount"]

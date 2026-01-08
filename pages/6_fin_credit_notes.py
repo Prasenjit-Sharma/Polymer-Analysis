@@ -4,7 +4,7 @@ import pandas as pd
 from calendar import monthrange
 import utilities
 
-st.title("Credit Notes")
+utilities.apply_common_styles("Credit Notes")
 
 # Read Data
 df = st.session_state["Sales Data"]
