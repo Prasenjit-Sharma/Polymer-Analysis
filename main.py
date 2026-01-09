@@ -25,7 +25,7 @@ pages = {
     ],
     "Customer": [
         st.Page("pages/3_cust_dash.py", title="Customer Performance"),
-        st.Page("pages/4_cust_avg_price.py", title="Avg. Price"),
+        st.Page("pages/4_cust_avg_price.py", title="Material Pricing"),
     ],
     "DCA": [
         st.Page("pages/5_dca_dash.py", title="DCA Performance"),

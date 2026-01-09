@@ -6,7 +6,6 @@ import streamlit as st
 from mitosheet.streamlit.v1 import spreadsheet
 
 
-
 FISCAL_START = 4
 
 month_order = ["April", "May", "June", 
@@ -88,6 +87,15 @@ def render_excel_pivot(df,key):
         gb.configure_column(
             col,
             type=["textColumn"],
+            valueFormatter=None  # No formatter for string columns
+        )
+    
+    # Aggregation of Columns in Max
+    if "Final Price / kg" in df_copy.columns.tolist():
+        gb.configure_column(
+            "Final Price / kg",
+            aggFunc="max",
+            type=["numericColumn"],
             valueFormatter=None  # No formatter for string columns
         )
 
@@ -224,6 +232,39 @@ def explore_with_mito(df, key='mito_explorer'):
     
     # Just open Mito, don't capture returns if not needed
     spreadsheet(df, key=key)
+
+# Period Selection - Select Year, Select Month
+def period_selection(df):
+    # Creating options for Period Selection
+    available_years = sorted(df["Year"].dropna().unique().astype(int))
+
+    month_map = {
+            1: "January", 2: "February", 3: "March", 4: "April",
+            5: "May", 6: "June", 7: "July", 8: "August",
+            9: "September", 10: "October", 11: "November", 12: "December"
+        }
+
+    available_months = sorted(df["Month"].dropna().unique().astype(int))
+
+    # st.subheader("Select Period for Discount Calculation")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        selected_year = st.selectbox(
+                "Year",
+                available_years,
+                index=len(available_years) - 1
+            )
+
+    with col2:
+        selected_month = st.selectbox(
+                "Month",
+                available_months,
+                format_func=lambda m: month_map[m]
+            )
+    filtered_df = df[(df["Year"] == selected_year) & (df["Month"] == selected_month)].copy()
+    return selected_year, selected_month, filtered_df
 
 def apply_common_styles(title):
     st.set_page_config(layout="wide") 

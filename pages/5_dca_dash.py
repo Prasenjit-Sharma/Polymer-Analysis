@@ -8,6 +8,13 @@ utilities.apply_common_styles("DCA Performance")
 
 filtered_df = st.session_state["Sales Data"]
 
+MONTH_NAMES = {
+    1: "January", 2: "February", 3: "March",
+    4: "April", 5: "May", 6: "June",
+    7: "July", 8: "August", 9: "September",
+    10: "October", 11: "November", 12: "December"
+}
+
 # Last Data Available
 display_year, display_fy, display_month, display_month_no = utilities.latest_data(filtered_df)
 filtered_df = utilities.prepare_df_for_aggrid(filtered_df, columns_to_convert=["Fiscal Year"])

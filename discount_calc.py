@@ -528,6 +528,28 @@ class discount():
         ]
         return max(applicable) if applicable else 0.0
     
+    # Retrieve Discounts for month
+    def filter_discounts_for_month(discount_json, selected_year, selected_month):
+        month_start = pd.Timestamp(selected_year, selected_month, 1)
+        month_end = pd.Timestamp(selected_year,selected_month,monthrange(selected_year, selected_month)[1])
+
+        applicable_discounts_json = {}
+
+        for discount_type, records in discount_json.items():
+            valid_records = []
+
+            for r in records:
+                start = pd.to_datetime(r["start_date"])
+                end = pd.to_datetime(r["end_date"])
+
+                # overlap logic
+                if start <= month_end and end >= month_start:
+                    valid_records.append(r)
+
+            if valid_records:
+                applicable_discounts_json[discount_type] = valid_records
+
+        return applicable_discounts_json
     
     # Grouping Sales Data
     def prepare_group_pivot(filtered_df: pd.DataFrame, group_cols) -> pd.DataFrame:
