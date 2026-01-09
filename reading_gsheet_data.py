@@ -14,7 +14,7 @@ class read_data():
         )
     
     @staticmethod
-    @st.cache_data
+    @st.cache_data(ttl=3600)
     def fetch_sales_data():
         spreadsheet_url = st.secrets["file_address"]["SPREADSHEET_URL"]
         worksheet_name = st.secrets["file_address"]["WORKSHEET_SALES"]

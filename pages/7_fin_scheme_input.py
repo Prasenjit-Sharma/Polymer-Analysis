@@ -563,19 +563,22 @@ with tab_add:
 
     # Button Saving as JSON
     if discount_option is not None:
-            if st.button("Submit and Save"):
-                # Convert the Python dictionary to a pretty-printed JSON string
-                new_discount = data_to_save
-                # Read json file from google drive
-                current_add_json = discount.read_json_from_drive(st.session_state.cache_version)
-                # Add new discount data
-                updated_json = discount.append_discount(current_add_json, new_discount)
-                # Rewrite file to drive
-                discount.overwrite_json_in_drive(updated_json)
-                st.session_state.cache_version += 1
-                # st.success(data_to_save)
-                st.success("Data successfully Saved.")
-                # st.code(updated_json, language="json")
+            if st.session_state.username != "admin":
+                st.warning("You are not authorised.")
+            else:
+                if st.button("Submit and Save"):
+                    # Convert the Python dictionary to a pretty-printed JSON string
+                    new_discount = data_to_save
+                    # Read json file from google drive
+                    current_add_json = discount.read_json_from_drive(st.session_state.cache_version)
+                    # Add new discount data
+                    updated_json = discount.append_discount(current_add_json, new_discount)
+                    # Rewrite file to drive
+                    discount.overwrite_json_in_drive(updated_json)
+                    st.session_state.cache_version += 1
+                    # st.success(data_to_save)
+                    st.success("Data successfully Saved.")
+                    # st.code(updated_json, language="json")
 
 # Modify Discounts
 with tab_modify:
@@ -636,23 +639,23 @@ with tab_modify:
                 # --- Fallback (do not edit) ---
                 else:
                     updated_record[key] = value 
+            if st.session_state.username != "admin":
+                st.warning("You are not authorised.")
+            else:
+                if st.form_submit_button("Save Changes"):
+                    # locate original index in full JSON
+                    full_index = find_record_index(
+                    current_mod_json[dtype],
+                    record,
+                    discount_type=dtype
+                    )
 
-            save = st.form_submit_button("Save Changes")
+                    current_mod_json[dtype][full_index] = updated_record
 
-        if save:
-            # locate original index in full JSON
-            full_index = find_record_index(
-            current_mod_json[dtype],
-            record,
-            discount_type=dtype
-            )
-
-            current_mod_json[dtype][full_index] = updated_record
-
-            discount.overwrite_json_in_drive(current_mod_json)
-            st.session_state.cache_version += 1
-            st.success("Discount updated successfully")
-            # st.rerun()
+                    discount.overwrite_json_in_drive(current_mod_json)
+                    st.session_state.cache_version += 1
+                    st.success("Discount updated successfully")
+                    # st.rerun()
 
 # Delete Discounts
 with tab_delete:
@@ -712,22 +715,24 @@ with tab_delete:
             "I understand this action cannot be undone",
             key="delete_confirm"
         )
+        if st.session_state.username != "admin":
+                st.warning("You are not authorised.")
+        else:
+            if st.button("Delete Discount", disabled=not confirm):
+                # Find correct index in original (unfiltered) JSON
+                full_index = find_record_index(
+                    current_del_json[dtype],
+                    record,
+                    discount_type=dtype
+                )
 
-        if st.button("Delete Discount", disabled=not confirm):
-            # Find correct index in original (unfiltered) JSON
-            full_index = find_record_index(
-                current_del_json[dtype],
-                record,
-                discount_type=dtype
-            )
+                del current_del_json[dtype][full_index]
 
-            del current_del_json[dtype][full_index]
+                # Clean up empty discount type
+                if not current_del_json[dtype]:
+                    del current_del_json[dtype]
 
-            # Clean up empty discount type
-            if not current_del_json[dtype]:
-                del current_del_json[dtype]
-
-            discount.overwrite_json_in_drive(current_del_json)
-            st.session_state.cache_version += 1
-            st.success("Discount deleted successfully")
-            # st.rerun()
+                discount.overwrite_json_in_drive(current_del_json)
+                st.session_state.cache_version += 1
+                st.success("Discount deleted successfully")
+                # st.rerun()
