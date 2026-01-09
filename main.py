@@ -2,8 +2,24 @@ import streamlit as st
 import pandas as pd
 from reading_gsheet_data import read_data
 from discount_calc import discount
+import utilities
 
-st.set_page_config(layout="wide") 
+utilities.apply_common_styles("")
+
+# Delete Sidebar Navigation
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        [data-testid="stSidebarNav"] {
+            display: none;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 def page_nav():
     # Read Sales & Discount Data
@@ -36,6 +52,9 @@ def page_nav():
             st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
             
         ],
+        "✨AI": [
+            st.Page("pages/9_data_ai.py", title="Data Charts", icon="🌟"),
+        ],
         "Account": [
             st.Page("pages/10_logout_page.py", title="Logout", icon="🚪"),
         ],
@@ -51,17 +70,18 @@ if "is_logged_in" not in st.session_state:
 if not st.session_state["is_logged_in"]:
     with st.container():
         col1, inter_col_space, col2 = st.columns([2, 1, 2])
-
         with col1:
             st.image(
                 "https://i1.wp.com/hrnxt.com/wp-content/uploads/2021/07/Hindustan-Petroleum.jpg?resize=580%2C239&ssl=1",
-                # width=True,
+                width="stretch",
                 # Manually Adjust the width of the image as per requirement
             )
         with col2:
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            but_login = st.button(label="Login", type="primary")
+            with st.container(border=True):
+                st.image("Durapol_img.jpg",)
+                username = st.text_input("Username")
+                password = st.text_input("Password", type="password")
+                but_login = st.button(label="Login", type="primary")
 
         if but_login:
             if username in st.secrets["passwords"] and password == st.secrets["passwords"][username]:
@@ -69,5 +89,20 @@ if not st.session_state["is_logged_in"]:
                 st.session_state.username = username
             else:
                 st.error("Invalid username or password")
+        st.divider()
+        # Fetching data
+        with st.container(border=True):
+            st.markdown("### Latest Polymer News")
+            with st.spinner("Scanning for Polymer News..."):
+                news_data = utilities.fetch_price_news()
+            
+            if news_data:
+                # Display as Cards
+                for news in news_data:
+                    with st.expander(f"📅 {news['Date']} | {news['Title']}", expanded=True):
+                        st.markdown(f"**Full Update:**")
+                        st.write(news['Details'])
+            else:
+                st.warning("No news items found")
 else:
     page_nav()

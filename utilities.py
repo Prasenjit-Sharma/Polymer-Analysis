@@ -4,6 +4,8 @@ import plotly.express as px
 from io import BytesIO
 import streamlit as st
 from mitosheet.streamlit.v1 import spreadsheet
+import requests
+from bs4 import BeautifulSoup
 
 
 FISCAL_START = 4
@@ -272,8 +274,58 @@ def apply_common_styles(title):
     st.markdown("""
         <style>
         .block-container {
-            padding-top: 3rem !important;
+            padding-top: 0rem !important;
             padding-bottom: 3rem !important;
         }
         </style>
     """, unsafe_allow_html=True)
+
+def fetch_price_news():
+    url = "https://www.plastemart.com/whats-new-plastics-industry"
+    # Using a common browser Header to prevent being blocked
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Target the specific ID and classes from your example
+        product_container = soup.find('div', id='products')
+        if not product_container:
+            return []
+
+        news_list = []
+        # Find each news card
+        items = product_container.find_all('div', class_='item')
+
+        for item in items:
+            caption = item.find('div', class_='caption')
+            if caption:
+                # 1. Extract the Date
+                date_div = caption.find('div', class_='news-date')
+                date_val = date_div.get_text(strip=True) if date_div else "N/A"
+                
+                # 2. Extract the News Text (cleaning up the HTML)
+                # We remove the date_div from the caption to get only the text
+                if date_div:
+                    date_div.extract() 
+                
+                # Use separator to keep <br> as spaces
+                news_text = caption.get_text(separator=" ", strip=True)
+                
+                # Use the first line as a title for the UI
+                title = news_text.split('.')[0] if '.' in news_text else news_text[:60] + "..."
+
+                news_list.append({
+                    "Date": date_val,
+                    "Title": title,
+                    "Details": news_text
+                })
+        
+        return news_list
+    except Exception as e:
+        st.error(f"Connection Error: {e}")
+        return []
