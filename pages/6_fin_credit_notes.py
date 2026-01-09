@@ -23,7 +23,6 @@ if filtered_df.empty:
     st.stop()
 else:
     df_with_discount = discount.apply_discount(filtered_df,monthly_discounts, selected_year, selected_month)
-
     discount_pivot = (
         df_with_discount[["Regional Office", "Sold-to Party","Sold-to-Party Name", "Sold-to Group", "Quantity", "Month Credit Note"]]
         .groupby(["Regional Office", "Sold-to Party","Sold-to-Party Name","Sold-to Group"], as_index=False)

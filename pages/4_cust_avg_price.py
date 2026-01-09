@@ -27,7 +27,6 @@ def prepare_material_price_metrics(df: pd.DataFrame) -> pd.DataFrame:
         df["Net Value of Billing item"] -
         (df["Net Discount"] * df["Quantity"])
     )
-
     material_df = (
         df.groupby("Material Description", as_index=False)
         .agg(
@@ -171,64 +170,74 @@ def build_price_change_events(discount_json: dict) -> list[dict]:
 if "calendar_date" not in st.session_state:
     st.session_state.calendar_date = datetime.today().date()
 
-calendar_options = {
+
+
+# -------------------------------------------------
+# Filters
+# -------------------------------------------------
+
+with st.container(border=True):
+    selected_year, selected_month, filter_df = utilities.period_selection(df)
+
+    col1, col2, col3,col4,col5 = st.columns(5)
+
+    with col1:
+        cg = st.multiselect("Customer Group", df["Sold-to Group"].unique())
+        if cg: filtered_df = df[df["Sold-to Group"].isin(cg)]
+
+    with col2:
+        cust = st.multiselect("Customer", df["Sold-to-Party Name"].unique())
+        if cust:
+            filtered_df = filtered_df[filtered_df["Sold-to-Party Name"].isin(cust)]
+    with col3:
+        group = st.multiselect("Group", df["Material Group"].unique())
+        if group:
+            filtered_df = filtered_df[filtered_df["Material Group"].isin(group)]
+    with col4:
+        grade = st.multiselect("Grade", df["Material Description"].unique())
+        if grade:
+            filtered_df = filtered_df[filtered_df["Material Description"].isin(grade)]
+    with col5:
+        dca = st.multiselect("DCA", df["Plant Description"].unique())
+        if dca: filtered_df = filtered_df[filtered_df["Plant Description"].isin(dca)]
+
+monthly_discounts = discount.filter_discounts_for_month(discount_json, selected_year, selected_month)
+
+if not monthly_discounts:
+    st.warning("No discounts applicable for the selected month.")
+    st.stop()
+
+if filter_df.empty:
+    st.warning(f"No sales data found for the period")
+    st.stop()
+else:
+    df_with_discount = discount.apply_discount(filter_df,monthly_discounts, selected_year, selected_month)
+    # utilities.render_excel_pivot(df_with_discount,key="Test2")
+    if cg: df_with_discount = df_with_discount[df_with_discount["Sold-to Group"].isin(cg)]
+    if cust: df_with_discount = df_with_discount[df_with_discount["Sold-to-Party Name"].isin(cust)]
+    if group: df_with_discount = df_with_discount[df_with_discount["Material Group"].isin(group)]
+    if grade: df_with_discount = df_with_discount[df_with_discount["Material Description"].isin(grade)]
+    if dca: df_with_discount = df_with_discount[df_with_discount["Plant Description"].isin(dca)]
+
+    display_date = df_with_discount["Billing Date"].iloc[-1]
+
+    calendar_options = {
     "initialView": "dayGridMonth",
-    "initialDate": st.session_state.calendar_date.isoformat(),
-    "headerToolbar": {
-        "left": "prev,next today",
-        "center": "title",
-        # "right": "dayGridMonth,timeGridWeek,timeGridDay",
-    },
+    "initialDate": display_date.isoformat(),
+    # "headerToolbar": {
+    #     "left": "prev,next today",
+    #     "center": "title",
+    #     # "right": "dayGridMonth,timeGridWeek,timeGridDay",
+    # },
     "editable": False,
     "selectable": False,
     "eventDisplay": "block",          # 🔑 IMPORTANT
     "dayMaxEventRows": True 
 }
-
-# -------------------------------------------------
-# Filters
-# -------------------------------------------------
-with st.container(border=True):
-    col1, col2, col3,col4,col5 = st.columns(5)
-
-    with col1:
-        cg = st.multiselect("Customer Group", df["Sold-to Group"].unique())
-        if cg:
-            df = df[df["Sold-to Group"].isin(cg)]
-
-    with col2:
-        cust = st.multiselect("Customer", df["Sold-to-Party Name"].unique())
-        if cust:
-            df = df[df["Sold-to-Party Name"].isin(cust)]
-    with col3:
-        group = st.multiselect("Group", df["Material Group"].unique())
-        if group:
-            df = df[df["Material Group"].isin(group)]
-    with col4:
-        grade = st.multiselect("Grade", df["Material Description"].unique())
-        if grade:
-            df = df[df["Material Description"].isin(grade)]
-    with col5:
-        dca = st.multiselect("DCA", df["Plant Description"].unique())
-        if dca:
-            df = df[df["Plant Description"].isin(dca)]
-
 tab_calendar, tab_excel = st.tabs(["Calendar with Pricing", "Chart"])
 
 with tab_calendar:
-    today = st.session_state.calendar_date
-    selected_year = today.year
-    selected_month = today.month
-
-    monthly_discounts = discount.filter_discounts_for_month(discount_json,selected_year,selected_month)
-
-    if df.empty or not monthly_discounts:
-        st.warning("No data available for selected month.")
-        st.stop()
-
-    df = discount.apply_discount(df,monthly_discounts,selected_year,selected_month)
-
-    daily_df = prepare_daily_material_calendar_df(df)
+    daily_df = prepare_daily_material_calendar_df(df_with_discount)
     # Final Price
     events, material_colors = build_calendar_events(daily_df)
     render_material_legend(material_colors)
@@ -248,24 +257,10 @@ with tab_calendar:
         st.session_state.calendar_date = start.date()
 
 with tab_excel:
+    material_metrics_df = prepare_material_price_metrics(df_with_discount)
+    with st.container(border=True):
+        render_material_price_metrics(material_metrics_df)
+
+    daily_df = prepare_daily_material_calendar_df(df_with_discount)
     
-    selected_year, selected_month, filtered_df = utilities.period_selection(df)
-    monthly_discounts = discount.filter_discounts_for_month(discount_json, selected_year, selected_month)
-
-    if not monthly_discounts:
-        st.warning("No discounts applicable for the selected month.")
-        st.stop()
-
-    if filtered_df.empty:
-        st.warning(f"No sales data found for the period")
-        st.stop()
-    else:
-        
-        df_with_discount = discount.apply_discount(filtered_df,monthly_discounts, selected_year, selected_month)
-        material_metrics_df = prepare_material_price_metrics(df_with_discount)
-        with st.container(border=True):
-            render_material_price_metrics(material_metrics_df)
-
-        daily_df = prepare_daily_material_calendar_df(df_with_discount)
-        
-        utilities.render_excel_pivot(daily_df, key="daily_price")
+    utilities.render_excel_pivot(daily_df, key="daily_price")

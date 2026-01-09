@@ -23,10 +23,11 @@ st.markdown(
 
 def page_nav():
     # Read Sales & Discount Data
-    st.session_state["Sales Data"] = df = read_data.fetch_sales_data()
-    st.session_state["CMR Data"] = read_data.fetch_cmr_data()
-    st.session_state["MOU Data"] = read_data.fetch_mou_data()
-    st.session_state["Group Data"] = read_data.fetch_group_data()
+    with st.spinner("Loading Information...."):
+        st.session_state["Sales Data"] = df = read_data.fetch_sales_data()
+        st.session_state["CMR Data"] = read_data.fetch_cmr_data()
+        st.session_state["MOU Data"] = read_data.fetch_mou_data()
+        st.session_state["Group Data"] = read_data.fetch_group_data()
     if "cache_version" not in st.session_state:
         st.session_state.cache_version = 0
     st.session_state["Discount Data"] = discount.read_json_from_drive(st.session_state.cache_version)
