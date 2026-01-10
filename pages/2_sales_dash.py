@@ -143,7 +143,7 @@ with st.container(border=True):
     
     if is_on_sales:
         st.markdown("#### Customer Sales Table")
-        sales_pivot = discount.build_sales_summary(filtered_df)
+        sales_pivot = discount.build_sales_summary(filtered_df, ["Regional Office", "Sold-to Group"])
         utilities.render_excel_pivot(sales_pivot,"pivot_data")
     
     if is_on_detail:

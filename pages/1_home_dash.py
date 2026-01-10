@@ -506,8 +506,8 @@ with tab_daily:
             mou_sales_pivot_day = discount.prepare_mou_group_pivot(day_df,display_year,display_month_no).fillna(0)
             # Merge Sale, Non-Zero and MOU
             mtd_sales_pivot = discount.build_sales_mou_summary(day_df,mou_sales_pivot_day,non_zero_pivot_day)
-            day_sales_pivot = discount.build_sales_summary(day_df)
-            utilities.render_excel_pivot(day_sales_pivot,"day15")
+            # day_sales_pivot = discount.build_sales_summary(day_df)
+            utilities.render_excel_pivot(mtd_sales_pivot,"day15")
 
         if is_on_detail:
             st.markdown("#### Detailed Sales Table")

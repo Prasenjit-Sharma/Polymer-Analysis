@@ -269,7 +269,7 @@ def period_selection(df):
     return selected_year, selected_month, filtered_df
 
 def apply_common_styles(title):
-    st.set_page_config(layout="wide") 
+    st.set_page_config(layout="wide",initial_sidebar_state="collapsed") 
     st.markdown(f"### {title}")
     st.markdown("""
         <style>
@@ -278,7 +278,8 @@ def apply_common_styles(title):
             padding-bottom: 3rem !important;
         }
         </style>
-    """, unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True)
 
 def fetch_price_news():
     url = "https://www.plastemart.com/whats-new-plastics-industry"

@@ -7,19 +7,19 @@ import utilities
 utilities.apply_common_styles("")
 
 # Delete Sidebar Navigation
-st.markdown(
-    """
-    <style>
-        [data-testid="stSidebar"] {
-            display: none;
-        }
-        [data-testid="stSidebarNav"] {
-            display: none;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# st.markdown(
+#     """
+#     <style>
+#         [data-testid="stSidebar"] {
+#             display: none;
+#         }
+#         [data-testid="stSidebarNav"] {
+#             display: none;
+#         }
+#     </style>
+#     """,
+#     unsafe_allow_html=True
+# )
 
 def page_nav():
     # Read Sales & Discount Data
