@@ -234,7 +234,7 @@ else:
     "eventDisplay": "block",          # 🔑 IMPORTANT
     "dayMaxEventRows": True 
 }
-tab_calendar, tab_excel = st.tabs(["Pricing Chart", "Calendar with Pricing"])
+tab_excel, tab_calendar = st.tabs(["Pricing Chart", "Calendar with Pricing"])
 
 with tab_calendar:
     daily_df = prepare_daily_material_calendar_df(df_with_discount)
