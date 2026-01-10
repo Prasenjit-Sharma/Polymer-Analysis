@@ -18,7 +18,7 @@ if st.session_state["is_logged_in"]:
     df = st.session_state["Sales Data"]
     discount_json = st.session_state["Discount Data"]
 
-df = utilities.prepare_df_for_aggrid(df, columns_to_convert=["Fiscal Year"])
+    df = utilities.prepare_df_for_aggrid(df, columns_to_convert=["Fiscal Year"])
 
 def prepare_material_price_metrics(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
