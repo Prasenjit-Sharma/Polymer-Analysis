@@ -309,8 +309,8 @@ with tab_view:
                     margin-bottom:5px;
                     background-color:#F5FBE6;
                 ">
-                <h3>{discount_type}</h3>
-                <p style="color:gray;">Total Entries: {len(entries)}</p>
+                <h3 style="color:black;">{discount_type} </h3>
+                <p style="color:black;">Total Entries: {len(entries)}</p>
                 </div>
                 """,
                 unsafe_allow_html=True
