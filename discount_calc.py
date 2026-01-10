@@ -553,6 +553,46 @@ class discount():
 
         return applicable_discounts_json
     
+    # Retrieve discounts for material groups and discount types
+    def filter_discounts_for_types(discount_json, material_groups = None, discount_types = None):
+        # Normalize inputs
+        if material_groups is not None and not isinstance(material_groups, list):
+            material_groups = [material_groups]
+
+        if discount_types is not None and not isinstance(discount_types, list):
+            discount_types = [discount_types]
+
+        filtered = {}
+
+        for dtype, entries in discount_json.items():
+
+            # Discount type filter
+            if discount_types and dtype not in discount_types:
+                continue
+
+            matched_entries = []
+
+            for entry in entries:
+                entry_materials = entry.get("material_groups")
+
+                # If material filter not provided → keep entry
+                if material_groups is None:
+                    matched_entries.append(entry)
+                    continue
+
+                # If entry has no material info → skip
+                if not entry_materials:
+                    continue
+
+                # Intersection check
+                if any(m in entry_materials for m in material_groups):
+                    matched_entries.append(entry)
+
+            if matched_entries:
+                filtered[dtype] = matched_entries
+
+        return filtered
+    
     # Grouping Sales Data
     def prepare_group_pivot(filtered_df: pd.DataFrame, group_cols) -> pd.DataFrame:
         df = filtered_df.copy()

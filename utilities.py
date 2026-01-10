@@ -268,6 +268,7 @@ def period_selection(df):
     filtered_df = df[(df["Year"] == selected_year) & (df["Month"] == selected_month)].copy()
     return selected_year, selected_month, filtered_df
 
+# Applying styles to all pages
 def apply_common_styles(title):
     st.set_page_config(layout="wide",initial_sidebar_state="collapsed") 
     st.markdown(f"### {title}")
@@ -281,6 +282,32 @@ def apply_common_styles(title):
     """,
     unsafe_allow_html=True)
 
+# Render Discount JSON
+def render_discount_json(value):
+    """Render any JSON value cleanly"""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            st.markdown(f"**{k}**")
+            render_discount_json(v)
+
+    elif isinstance(value, list):
+        if len(value) == 0:
+            st.write("—")
+
+        # List of dicts → table
+        elif all(isinstance(i, dict) for i in value):
+            df = pd.DataFrame(value)
+            st.table(df)
+
+        # List of primitives → bullets
+        else:
+            for i in value:
+                st.write(f"- {i}")
+
+    else:
+        st.write(value)
+
+# Scrapping
 def fetch_price_news():
     url = "https://www.plastemart.com/whats-new-plastics-industry"
     # Using a common browser Header to prevent being blocked

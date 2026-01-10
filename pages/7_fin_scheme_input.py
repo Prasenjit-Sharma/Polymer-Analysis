@@ -265,12 +265,67 @@ def slab_discounts(key_prefix, basis):
 
 utilities.apply_common_styles("Monthly Schemes")
 
-tab_view, tab_add, tab_modify, tab_delete = st.tabs(
-    ["📄 View Discounts", "➕ Add Discount", "✏️ Modify Discount", "🗑️ Delete Discount"]
+tab_view, tab_cal_view, tab_add, tab_modify, tab_delete = st.tabs(
+    ["View Discounts","📄 Calendar View Discounts", "➕ Add Discount", "✏️ Modify Discount", "🗑️ Delete Discount"]
 )
-
 # View Discounts
 with tab_view:
+    discount_json = discount.read_json_from_drive(st.session_state.cache_version)
+    df = st.session_state["Sales Data"]
+    selected_year_, selected_month_, filtered_df_ = utilities.period_selection(df)
+    monthly_discounts_ = discount.filter_discounts_for_month(discount_json, selected_year_, selected_month_)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_groups_ = st.multiselect(
+            "Material Group",
+            ["PP", "LLDPE", "HDPE"],
+            default=["PP"],
+            key="view_material_group1"
+        )
+
+    with col2:
+        available_discount_types_ = list(discount_json.keys())
+        default_discount_types = [
+            d for d in DISPLAY_DISCOUNT_TYPES if d in available_discount_types_]
+        selected_discount_types_ = st.multiselect(
+                "Discount Type",
+                options=available_discount_types_,
+                default=default_discount_types,
+                key="view_discount_types1"
+            )
+    filtered_discounts = discount.filter_discounts_for_types(monthly_discounts_, selected_groups_, selected_discount_types_)
+    # Render Discount Types as Cards
+    for discount_type, entries in filtered_discounts.items():
+
+        # Card Container
+        with st.container():
+            st.markdown(
+                f"""
+                <div style="
+                    padding:0px 10px 0px 10px;
+                    border-radius:12px;
+                    border:1px solid #e0e0e0;
+                    margin-bottom:5px;
+                    background-color:#F5FBE6;
+                ">
+                <h3>{discount_type}</h3>
+                <p style="color:gray;">Total Entries: {len(entries)}</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # Each Entry
+            for idx, entry in enumerate(entries, start=1):
+                with st.expander(f"{discount_type} – Entry {idx}", expanded=False):
+
+                    for key, value in entry.items():
+                        st.markdown(f"### {key}")
+                        utilities.render_discount_json(value)
+
+# View Discounts In Calendar
+with tab_cal_view:
     st.markdown("### Discount Calendar View")
 
     # Delete reading discount in Production
