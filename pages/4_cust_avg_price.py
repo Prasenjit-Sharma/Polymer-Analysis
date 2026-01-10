@@ -11,8 +11,9 @@ import utilities
 # -------------------------------------------------
 utilities.apply_common_styles("Material Pricing")
 
-df = st.session_state["Sales Data"]
-discount_json = st.session_state["Discount Data"]
+if st.session_state["is_logged_in"]:
+    df = st.session_state["Sales Data"]
+    discount_json = st.session_state["Discount Data"]
 
 df = utilities.prepare_df_for_aggrid(df, columns_to_convert=["Fiscal Year"])
 
