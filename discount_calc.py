@@ -25,7 +25,9 @@ class discount():
     
     # Read Google JSON Discount file
     @staticmethod
-    @st.cache_data(show_spinner=True, ttl=3600)
+    @st.cache_data(show_spinner=True, 
+                    ttl=3600 # OPen in Production
+                   )
     def read_json_from_drive(cache_version: int):
         file_id = st.secrets["file_address"]["JSON_FILE_ID"]
         drive_service = discount.get_drive_service()

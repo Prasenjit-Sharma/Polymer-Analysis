@@ -275,6 +275,7 @@ with tab_view:
 
     # Delete reading discount in Production
     existing_json = discount.read_json_from_drive(st.session_state.cache_version)
+
     col1, col2 = st.columns([2, 3])
 
     with col1:

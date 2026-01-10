@@ -5,9 +5,12 @@ import numpy as np
 import utilities
 from discount_calc import discount
 
-utilities.apply_common_styles("Sales Summary")
+
 
 df = st.session_state["Sales Data"]
+last_date = df['Billing Date'].drop_duplicates().nlargest(1)
+formatted_date = last_date.iloc[0].strftime('%d-%b-%Y')
+utilities.apply_common_styles(f"Sales Summary - {formatted_date}")
 
 # Creating Month Order
 month_order = utilities.month_order

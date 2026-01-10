@@ -6,21 +6,6 @@ import utilities
 
 utilities.apply_common_styles("")
 
-# Delete Sidebar Navigation
-# st.markdown(
-#     """
-#     <style>
-#         [data-testid="stSidebar"] {
-#             display: none;
-#         }
-#         [data-testid="stSidebarNav"] {
-#             display: none;
-#         }
-#     </style>
-#     """,
-#     unsafe_allow_html=True
-# )
-
 def page_nav():
     # Read Sales & Discount Data
     with st.spinner("Loading Information...."):
@@ -53,9 +38,9 @@ def page_nav():
             st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
             
         ],
-        "✨AI": [
-            st.Page("pages/9_data_ai.py", title="Data Charts", icon="🌟"),
-        ],
+        # "✨AI": [
+        #     st.Page("pages/9_data_ai.py", title="Data Charts", icon="🌟"),
+        # ],
         "Account": [
             st.Page("pages/10_logout_page.py", title="Logout", icon="🚪"),
         ],
@@ -88,6 +73,7 @@ if not st.session_state["is_logged_in"]:
             if username in st.secrets["passwords"] and password == st.secrets["passwords"][username]:
                 st.session_state["is_logged_in"] = True
                 st.session_state.username = username
+                st.rerun()
             else:
                 st.error("Invalid username or password")
         st.divider()

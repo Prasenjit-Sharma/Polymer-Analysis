@@ -53,7 +53,7 @@ def prepare_df_for_aggrid(df, columns_to_convert=None):
         if col in df_copy.columns:
             # df_copy[col] = df_copy[col].fillna(0).astype(int).astype(str)
             df_copy[col] = df_copy[col].apply(lambda x: str(int(float(x))) if pd.notna(x) else '')
-    
+
     return df_copy
 
 # Display Aggrid view of Group Pivot

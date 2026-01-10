@@ -7,3 +7,4 @@ import pygwalker as pyg
 df = st.session_state["Sales Data"]
 
 pyg.walk(df, env='Streamlit')
+
