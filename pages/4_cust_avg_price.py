@@ -178,29 +178,8 @@ if "calendar_date" not in st.session_state:
 
 with st.container(border=True):
     selected_year, selected_month, filter_df = utilities.period_selection(df)
-
-    col1, col2, col3,col4,col5 = st.columns(5)
-
-    with col1:
-        cg = st.multiselect("Customer Group", df["Sold-to Group"].unique())
-        if cg: filtered_df = df[df["Sold-to Group"].isin(cg)]
-
-    with col2:
-        cust = st.multiselect("Customer", df["Sold-to-Party Name"].unique())
-        if cust:
-            filtered_df = filtered_df[filtered_df["Sold-to-Party Name"].isin(cust)]
-    with col3:
-        group = st.multiselect("Group", df["Material Group"].unique())
-        if group:
-            filtered_df = filtered_df[filtered_df["Material Group"].isin(group)]
-    with col4:
-        grade = st.multiselect("Grade", df["Material Description"].unique())
-        if grade:
-            filtered_df = filtered_df[filtered_df["Material Description"].isin(grade)]
-    with col5:
-        dca = st.multiselect("DCA", df["Plant Description"].unique())
-        if dca: filtered_df = filtered_df[filtered_df["Plant Description"].isin(dca)]
-
+    filtered_df = filter_df
+    
 monthly_discounts = discount.filter_discounts_for_month(discount_json, selected_year, selected_month)
 
 if not monthly_discounts:
@@ -212,14 +191,38 @@ if filter_df.empty:
     st.stop()
 else:
     df_with_discount = discount.apply_discount(filter_df,monthly_discounts, selected_year, selected_month)
-    # utilities.render_excel_pivot(df_with_discount,key="Test2")
-    if cg: df_with_discount = df_with_discount[df_with_discount["Sold-to Group"].isin(cg)]
-    if cust: df_with_discount = df_with_discount[df_with_discount["Sold-to-Party Name"].isin(cust)]
-    if group: df_with_discount = df_with_discount[df_with_discount["Material Group"].isin(group)]
-    if grade: df_with_discount = df_with_discount[df_with_discount["Material Description"].isin(grade)]
-    if dca: df_with_discount = df_with_discount[df_with_discount["Plant Description"].isin(dca)]
+    col1, col2, col3,col4,col5 = st.columns(5)
 
-    display_date = df_with_discount["Billing Date"].iloc[-1]
+    with col1:
+        cg = st.multiselect("Customer Group", df_with_discount["Sold-to Group"].unique())
+        if not cg: cg = df_with_discount["Sold-to Group"].unique()
+        df_with_discount = df_with_discount[df_with_discount["Sold-to Group"].isin(cg)]
+
+    with col2:
+        cust = st.multiselect("Customer", df_with_discount["Sold-to-Party Name"].unique())
+        if not cust: cust = df_with_discount["Sold-to-Party Name"].unique()
+        df_with_discount = df_with_discount[df_with_discount["Sold-to-Party Name"].isin(cust)]
+
+    with col3:
+        group = st.multiselect("Group", df_with_discount["Material Group"].unique())
+        if not group: group = df_with_discount["Material Group"].unique()
+        df_with_discount = df_with_discount[df_with_discount["Material Group"].isin(group)]
+
+    with col4:
+        grade = st.multiselect("Grade", df_with_discount["Material Description"].unique())
+        if not grade: grade = df_with_discount["Material Description"].unique()
+        df_with_discount = df_with_discount[df_with_discount["Material Description"].isin(grade)]
+
+    with col5:
+        dca = st.multiselect("DCA", df_with_discount["Plant Description"].unique())
+        if not dca: dca = df_with_discount["Plant Description"].unique()
+        df_with_discount = df_with_discount[df_with_discount["Plant Description"].isin(dca)]
+
+    if len(df_with_discount) ==0 :
+        st.warning("No Records Found")
+        display_date = datetime.today()
+    else:
+        display_date = df_with_discount["Billing Date"].iloc[-1]
 
     calendar_options = {
     "initialView": "dayGridMonth",
