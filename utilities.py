@@ -13,6 +13,8 @@ FISCAL_START = 4
 month_order = ["April", "May", "June", 
                "July", "August", "September", "October", "November", "December","January", "February", "March"]
 
+PREFERRED_MATERIAL_ORDER = ["HR033","HM120A","F01019S","F02020"]
+
 def latest_data (df):
     display_year = df.iloc[-1]['Year']
     display_month = df.iloc[-1]['Month Name']
@@ -140,9 +142,31 @@ def draw_sunburst(df,path,values,title):
     fig = px.sunburst(df, path=path, values=values, title=title)
     return fig
 
+def prep_matdesc_category_order(df, color = None):
+    category_orders = {}
+
+    if color == "Material Description":
+        # Append remaining materials after preferred ones
+        remaining = [
+            m for m in df[color].unique()
+            if m not in PREFERRED_MATERIAL_ORDER
+        ]
+
+        category_orders[color] = PREFERRED_MATERIAL_ORDER + remaining
+    return category_orders
+
 def draw_histogram_month_quantity(df, color = None, title=None):
     # Get only months that exist in the data, in the correct order
     months_in_data = [m for m in month_order if m in df['Month Name'].unique()]
+    # Base category order
+    category_orders = {
+        "Month Name": months_in_data
+    }
+
+    # --- Merge material description order (REUSED FUNCTION) ---
+    category_orders.update(
+        prep_matdesc_category_order(df, color)
+    )
     fig = px.histogram(
             df.sort_values(by='Month Name'),
             x="Month Name",
@@ -151,7 +175,7 @@ def draw_histogram_month_quantity(df, color = None, title=None):
             color=color,
             title=title,
             # barmode="group", # Groups the bars side-by-side
-            category_orders={"Month Name": months_in_data},
+            category_orders=category_orders,
             text_auto=True
             )
     fig.update_layout(
@@ -163,8 +187,10 @@ def draw_histogram_month_quantity(df, color = None, title=None):
     return fig
 
 def draw_histogram_bar(df,x,y,color):
+
+    category_orders = prep_matdesc_category_order(df, color)
     fig = px.histogram(df, x=x, y=y,
-                    color=color, barmode='group',text_auto=True)
+                    color=color, barmode='group',text_auto=True, category_orders=category_orders)
     fig.update_layout(
         legend=dict(orientation="h", yanchor="bottom", y=-0.4, xanchor="center", x=0.5),
         xaxis_title="",
