@@ -43,6 +43,10 @@ with st.container(border=True):
 
 
     with tab_summary:
+        total_quantity_sum = filtered_df['Quantity'].sum()/1000
+        # Display Total Quantity
+        st.metric(label="Total Quantity (KT)", value=f"{total_quantity_sum:,.2f}") 
+
         col1, col2 = st.columns([1,2], gap="small")
         with col1:
             fig = utilities.draw_pie(filtered_df, values='Quantity',names = 'Material Family', title="")

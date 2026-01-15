@@ -57,14 +57,15 @@ if not st.session_state["is_logged_in"]:
     with st.container():
         col1, inter_col_space, col2 = st.columns([2, 1, 2])
         with col1:
-            st.image(
-                "https://i1.wp.com/hrnxt.com/wp-content/uploads/2021/07/Hindustan-Petroleum.jpg?resize=580%2C239&ssl=1",
-                width="stretch",
-                # Manually Adjust the width of the image as per requirement
-            )
+            # st.image(
+            #     "https://i1.wp.com/hrnxt.com/wp-content/uploads/2021/07/Hindustan-Petroleum.jpg?resize=580%2C239&ssl=1",
+            #     width="stretch",
+            #     # Manually Adjust the width of the image as per requirement
+            # )
+            st.image("DurapolLogo.jpg",width="stretch")
         with col2:
             with st.container(border=True):
-                st.image("Durapol_img.jpg",)
+                # st.image("DurapolLogo.jpg",)
                 username = st.text_input("Username")
                 password = st.text_input("Password", type="password")
                 but_login = st.button(label="Login", type="primary")

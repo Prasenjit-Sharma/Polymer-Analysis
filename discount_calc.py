@@ -337,6 +337,7 @@ class discount():
                 material_groups = disc.get("material_groups", [])
                 basis = disc.get("basis",[])
                 scheme_months = disc.get("scheme_months", [])
+                
 
                 # Normalize material groups (safety)
                 if isinstance(material_groups, str):
@@ -362,14 +363,19 @@ class discount():
                     
                     # --- GROUP-LEVEL TOTAL QUANTITY ---
                     # scheme months == Applicable Material Descriptions
+
                     group_df = discount.prepare_group_pivot(df,["Sold-to Group","Material Description"])
+
                     group_df = group_df[
                         group_df["Material Description"].isin(scheme_months)
                     ].copy()
+                    group_df = group_df.groupby("Sold-to Group", as_index=False)["Quantity"].sum()  
+
                     # --- SLAB RESOLUTION ---
                     group_df["Hidden Discount"] = group_df["Quantity"].apply(
                         lambda x: discount.get_slab_amount(x, slabs)
                     )
+                    
                 
                 elif basis == "Non-Zero Months Avg%":
 
