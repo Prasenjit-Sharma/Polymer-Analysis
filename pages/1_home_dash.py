@@ -173,9 +173,21 @@ with tab_year:
             
             if is_on_sales:
                 st.markdown("#### Customer Sales Table")
-                sales_pivot = discount.prepare_group_pivot(filtered_ytd_df,
-                                    ["Regional Office", "Sold-to Group"])
-                utilities.render_excel_pivot(sales_pivot,"sales_ytd")
+                # sales_pivot = discount.prepare_group_pivot(filtered_ytd_df,
+                #                     ["Regional Office", "Sold-to Group"])
+                # utilities.render_excel_pivot(sales_pivot,"sales_ytd")
+                 # Previous Month
+                fiscal_order = list(range(utilities.FISCAL_START, 13)) + list(range(1, utilities.FISCAL_START))
+                idx = fiscal_order.index(display_month_no)
+                scheme_months = fiscal_order[:idx]
+                # Get Non-Zero Data
+                non_zero_pivot_day = discount.prepare_non_zero_avg_group_pivot(filtered_ytd_df,scheme_months,display_year,display_month_no).fillna(0)
+                # MOU Data
+                mou_sales_pivot_day = discount.prepare_mou_group_pivot(filtered_ytd_df,display_year,display_month_no).fillna(0)
+                # Merge Sale, Non-Zero and MOU
+                mtd_sales_pivot = discount.build_sales_mou_summary(filtered_ytd_df,mou_sales_pivot_day,non_zero_pivot_day)
+                # day_sales_pivot = discount.build_sales_summary(day_df)
+                utilities.render_excel_pivot(mtd_sales_pivot,"ytd15")
 
             if is_on_detail:
                 st.markdown("#### Detailed Sales Table")
