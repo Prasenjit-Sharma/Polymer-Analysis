@@ -113,3 +113,18 @@ class read_data():
         # Rename specific columns
         # df = df.rename(columns={"PP": "MOU PP", "PE": "MOU PE"})
         return df
+
+    @staticmethod
+    @st.cache_data(ttl=3600)
+    def inventory_ahmd_data():
+        spreadsheet_url = st.secrets["file_address"]["INVENTORY_SHEET_URL"]
+        worksheet_name = st.secrets["file_address"]["WORKSHEET_AHMD_INVENTORY"]
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        df = conn.read(
+            spreadsheet=spreadsheet_url,
+            worksheet=worksheet_name,
+            usecols = None,
+            header = [0,1]
+        )
+        
+        return df

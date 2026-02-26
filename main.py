@@ -13,6 +13,8 @@ def page_nav():
         st.session_state["CMR Data"] = read_data.fetch_cmr_data()
         st.session_state["MOU Data"] = read_data.fetch_mou_data()
         st.session_state["Group Data"] = read_data.fetch_group_data()
+        st.session_state["Inventory Ahmd Data"] = read_data.inventory_ahmd_data()
+        
     if "cache_version" not in st.session_state:
         st.session_state.cache_version = 0
     st.session_state["Discount Data"] = discount.read_json_from_drive(st.session_state.cache_version)
@@ -36,6 +38,10 @@ def page_nav():
         "Finance": [
             st.Page("pages/7_fin_scheme_input.py", title="Monthly Schemes"),
             st.Page("pages/6_fin_credit_notes.py", title="Credit Note"),
+            
+        ],
+        "Inventory": [
+            st.Page("pages/11_inventory_ahmd.py", title="Ahmedabad"),
             
         ],
         # "✨AI": [
