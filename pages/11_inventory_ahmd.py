@@ -16,7 +16,9 @@ with st.container(border=True):
     with col1:
         # Date Slider
         min_date = df["Product"]["Date"].min()
-        max_date = df["Product"]["Date"].max()
+        today = pd.Timestamp.today().normalize()
+        max_sheet_date = df["Product"]["Date"].max()
+        max_date = min(max_sheet_date, today)
 
         if pd.notna(min_date) and pd.notna(max_date):
             start_date, end_date = st.slider(
