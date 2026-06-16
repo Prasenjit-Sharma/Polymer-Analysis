@@ -47,6 +47,11 @@ def page_nav():
         # "✨AI": [
         #     st.Page("pages/9_data_ai.py", title="Data Charts", icon="🌟"),
         # ],
+        "Pricing": [
+            st.Page("pages/12_pricing.py", title="Price Finder"),
+            st.Page("pages/13_group_price.py", title="Group Pricing"),
+            
+        ],
         "Account": [
             st.Page("pages/10_logout_page.py", title="Logout", icon="🚪"),
         ],

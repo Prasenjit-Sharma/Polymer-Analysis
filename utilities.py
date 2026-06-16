@@ -383,3 +383,72 @@ def fetch_price_news():
     except Exception as e:
         st.error(f"Connection Error: {e}")
         return []
+    
+# Producer Pricing
+COMPANIES = ["RIL","OPAL","HMEL","IOCL","GAIL","MRPL","NAYARA","HPCL","HPL"]
+FAMILY = ["PE", "PP"]
+PRICE_POINT_MAP = {
+    "RIL" : ["Depot", "Plant"],
+    "OPAL": ["Depot", "Plant"],
+    "HMEL": ["Depot", "Plant"],
+    "IOCL": ["Depot", "Plant", "Warehouse"],
+    "GAIL": ["Depot", "Plant"],
+    "MRPL": ["Depot", "Plant"],
+    "NAYARA": ["Depot", "Plant"],
+    "HPCL": ["Depot"],
+    "HPL": ["Depot", "Plant"],
+}
+SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL"]
+
+def get_price(df, grade_input, location_input):
+
+    # -----------------------------
+    # Find matching column
+    # -----------------------------
+    matching_columns = [
+        col for col in df.columns
+        if grade_input.lower() in str(col).lower()
+    ]
+
+    if not matching_columns:
+        return None, "No matching grade found"
+
+    grade_column = matching_columns[0]
+
+    # -----------------------------
+    # Find matching row
+    # -----------------------------
+    # matching_rows = df[
+    #     df["Location"].astype(str).str.lower() == location_input.lower()
+    # ]
+    matching_rows = df[
+    df["Location"].astype(str).str.lower().str.contains(location_input.lower(), na=False)
+    ]
+
+    if matching_rows.empty:
+        return None, "No matching location found"
+
+    # -----------------------------
+    # Get price
+    # -----------------------------
+    price = matching_rows.iloc[0][grade_column]
+
+    return price
+
+def get_freight(df, location_input):
+
+    matching_rows = df[
+        df["Location"].astype(str).str.lower() == location_input.lower()
+    ]
+
+    if matching_rows.empty:
+        return None
+
+    freight = matching_rows.iloc[0]["Freight"]
+
+    return freight
+
+def get_spreadsheet_name(company,mat_family,price_point):
+    spreadsheet_name = (f"{company}_{mat_family}_{price_point}").upper()
+    freight_sheet_name = (f"{company}_freight").upper()
+    return spreadsheet_name,freight_sheet_name

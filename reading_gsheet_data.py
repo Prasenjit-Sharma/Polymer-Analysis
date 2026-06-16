@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
+from datetime import datetime
+import gspread
+from google.oauth2.service_account import Credentials
 
 class read_data():
     
@@ -128,3 +131,97 @@ class read_data():
         )
         
         return df
+    
+    # Pricing Sheets
+    
+    def get_sheet_names(spreadsheet_url):
+        
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        creds = Credentials.from_service_account_info(
+            st.secrets["connections"]["gsheets"],
+            scopes=scopes
+        )
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_url(spreadsheet_url)
+        sheet_titles = [ws.title for ws in spreadsheet.worksheets()]
+        return spreadsheet, sheet_titles
+    
+
+    def get_nearest_lower_date(sheet_names, input_date):
+        # Convert only if string
+        if isinstance(input_date, str):
+            input_date = datetime.strptime(input_date, "%d.%m.%Y").date()
+
+        valid_dates = []
+
+        for sheet in sheet_names:
+            try:
+                sheet_date = datetime.strptime(sheet, "%d.%m.%Y").date()
+
+                if sheet_date <= input_date:
+                    valid_dates.append(sheet_date)
+
+            except ValueError:
+                pass
+
+        if not valid_dates:
+            return None
+
+        nearest_date = max(valid_dates)
+
+        return nearest_date.strftime("%d.%m.%Y")
+
+    @staticmethod
+    def read_pricing_data(spreadsheet_name, price_date):
+        spreadsheet_url = st.secrets["pricing"][spreadsheet_name]
+        spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
+        worksheet_name = read_data.get_nearest_lower_date(sheet_names,price_date)
+        df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+        return df, worksheet_name
+    
+    def read_freight_data(freight_sheet_name,price_date):
+        spreadsheet_url = st.secrets["pricing"][freight_sheet_name]
+        spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
+        worksheet_name = read_data.get_nearest_lower_date(sheet_names,price_date)
+        df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
+        return df, worksheet_name
+    
+    @st.cache_data(ttl=300)
+    def read_groups_data(spreadsheet_url):
+
+        spreadsheet, sheet_names = read_data.get_sheet_names(
+            spreadsheet_url
+        )
+
+        worksheet = spreadsheet.worksheet("Groups")
+
+        return pd.DataFrame(
+            worksheet.get_all_records()
+        )
+
+
+    @st.cache_data(ttl=3600)
+    def read_pricing_data_cached(
+        spreadsheet_name,
+        price_date
+    ):
+
+        return read_data.read_pricing_data(
+            spreadsheet_name,
+            price_date
+        )
+
+
+    @st.cache_data(ttl=3600)
+    def read_freight_data_cached(
+        freight_sheet_name,
+        price_date
+    ):
+
+        return read_data.read_freight_data(
+            freight_sheet_name,
+            price_date
+        )
