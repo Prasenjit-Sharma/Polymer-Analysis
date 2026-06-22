@@ -46,6 +46,7 @@ def add_row():
         {
             "company": "",
             "family": "",
+            "category":"",
             "grade": "",
             "location": "",
             "price_point": "",
@@ -61,147 +62,6 @@ def delete_row(index):
 # =========================================================
 
 tab_price, tab_create, tab_modify, tab_delete = st.tabs(["Find Price","Create Group","Modify Group","Delete Group"])
-
-# with tab_price:
-
-#     spreadsheet, sheet_names = read_data.get_sheet_names(SPREADSHEET_URL)
-#     worksheet = spreadsheet.worksheet("Groups")
-#     group_df = pd.DataFrame(worksheet.get_all_records())
-
-#     if group_df.empty:
-#         st.warning("No groups found")
-#     else:
-#         all_groups = sorted(group_df["group_name"].unique())
-
-#         with st.form("group_price_form"):
-
-#             col1, col2 = st.columns(2)
-#             with col1:
-#                 price_date = st.date_input("Price Date", format="DD/MM/YYYY")
-#             with col2:
-#                 selected_group = st.selectbox("Group Name", all_groups)
-
-#             submit_price = st.form_submit_button("Get Prices")
-
-#         if submit_price:
-
-#             selected_group_df = group_df[group_df["group_name"] == selected_group].reset_index(drop=True)
-
-#             output_rows = []
-
-#             pricing_cache = {}
-#             freight_cache = {}
-
-#             progress_bar = st.progress(0)
-
-#             total_rows = len(selected_group_df)
-
-#             for idx, row in selected_group_df.iterrows():
-
-#                 company = row["company"]
-#                 family = row["family"]
-#                 grade = row["grade"]
-#                 location = row["location"]
-#                 price_point = row["price_point"]
-#                 delivery_location = row[
-#                     "delivery_location"
-#                 ]
-
-#                 price = 0
-#                 freight = 0
-#                 circular_date = None
-#                 freight_date = None
-
-#                 try:
-#                     (spreadsheet_name, freight_sheet_name) = utilities.get_spreadsheet_name(company, 
-#                                                             family, price_point)
-
-#                     # =====================================
-#                     # PRICING CACHE
-#                     # =====================================
-
-#                     pricing_key = (spreadsheet_name,str(price_date))
-
-#                     if (pricing_key not in pricing_cache):
-#                         pricing_cache[pricing_key] = (read_data.read_pricing_data(
-#                                 spreadsheet_name,price_date))
-
-#                     (price_df, circular_date) = pricing_cache[pricing_key]
-
-#                     # =====================================
-#                     # GET PRICE
-#                     # =====================================
-
-#                     price = utilities.get_price(price_df, grade, location)
-
-#                 except Exception as e: price = 0
-
-#                 # =====================================
-#                 # FREIGHT
-#                 # =====================================
-
-#                 if (price_point == "Plant"and company in utilities.SPECIAL_FREIGHT_COMPANIES):
-#                     try:
-#                         freight_key = (freight_sheet_name,str(price_date))
-
-#                         if (freight_key not in freight_cache):
-#                             freight_cache[freight_key] = (read_data.read_freight_data(
-#                                     freight_sheet_name,price_date))
-
-#                         (freight_df,freight_date) = freight_cache[freight_key]
-#                         freight = (utilities.get_freight(freight_df,delivery_location))
-#                     except Exception as e: freight = 0
-#                     else: freight = 0
-
-#                 # =====================================
-#                 # FINAL OUTPUT ROW
-#                 # =====================================
-
-#                 output_rows.append({
-#                     "Company": company,
-#                     "Family": family,
-#                     "Grade": grade,
-#                     "Location": location,
-#                     "Price Point": price_point,
-#                     "Delivery Location": delivery_location,
-#                     "Price": price,
-#                     "Freight": freight
-#                 })
-
-#                 progress_bar.progress((idx + 1) / total_rows)
-
-#             progress_bar.empty()
-
-#             output_df = pd.DataFrame(output_rows)
-
-#             st.success("Pricing fetched successfully")
-#             display_df = output_df.set_index("Company")
-#             # st.dataframe(transposed_df,use_container_width=True)
-#             edited_df = st.data_editor(display_df,use_container_width=True)
-#             # numeric_rows = [
-#             #     "Price",
-#             #     "Freight"
-#             # ]
-
-#             # sum_df = edited_df.loc[
-#             #     edited_df.index.intersection(numeric_rows)
-#             # ].apply(
-#             #     pd.to_numeric,
-#             #     errors="coerce"
-#             # )
-
-#             # sum_row = pd.DataFrame(
-#             #     sum_df.sum()
-#             # ).T
-
-#             # sum_row.index = ["Total"]
-
-#             # st.subheader("Totals")
-
-#             # st.dataframe(
-#             #     sum_row,
-#             #     use_container_width=True
-#             # )
 
 # =========================================================
 # SESSION STATE
@@ -224,216 +84,145 @@ with tab_price:
 
     with col1:
 
-        if st.button(
-            "🔄 Refresh Groups"
-        ):
-
+        if st.button("🔄 Refresh Groups"):
             read_data.read_groups_data.clear()
-
             st.rerun()
-    group_df = read_data.read_groups_data(
-        SPREADSHEET_URL
-    )
+    group_df = read_data.read_groups_data(SPREADSHEET_URL)
+    
 
     if group_df.empty:
-
         st.warning("No groups found")
-
     else:
-
-        all_groups = sorted(
-            group_df["group_name"].unique()
-        )
+        
 
         # =====================================
         # INPUT FORM
         # =====================================
 
-        with st.form("group_price_form"):
+        with st.container(border=True):
 
-            col1, col2 = st.columns(2)
+            col1, col2, col3, col4, col5, col6 = st.columns(6)
+            temp_df = group_df
 
             with col1:
-
-                price_date = st.date_input(
-                    "Price Date",
-                    format="DD/MM/YYYY"
-                )
-
+                price_date = st.date_input( "Price Date", format="DD/MM/YYYY")
+            
             with col2:
+                all_family = sorted(temp_df["family"].unique())
+                selected_family = st.selectbox("Family", all_family)
+                temp_df = temp_df[temp_df["family"]== selected_family]
 
-                selected_group = st.selectbox(
-                    "Group Name",
-                    all_groups
-                )
+            with col3:
+                all_category = sorted(temp_df["category"].unique())
+                selected_category = st.selectbox("category", all_category)
+                temp_df = temp_df[temp_df["category"]== selected_category]
+                
 
-            submit_price = st.form_submit_button(
-                "Get Prices"
-            )
+            with col4:
+                all_location = sorted(temp_df["location"].unique())
+                selected_location = st.selectbox("Location", all_location)
+                temp_df = temp_df[temp_df["location"]== selected_location]
+                
+            with col5:
+                all_price_point = sorted(temp_df["price_point"].unique())
+                selected_price_point = st.selectbox("Price Point", all_price_point)
+                temp_df = temp_df[temp_df["price_point"]== selected_price_point]
 
+            with col6:
+                all_groups = sorted(temp_df["group_name"].unique())
+                selected_group = st.selectbox("Group Name", all_groups)
+
+            # submit_price = st.form_submit_button("Get Prices")
+            submit_price = st.button("Get Prices")
         # =====================================
         # FETCH PRICES
         # =====================================
 
         if submit_price:
 
-            selected_group_df = group_df[
-                group_df["group_name"]
-                == selected_group
-            ].reset_index(drop=True)
-
+            selected_group_df = group_df[group_df["group_name"]== selected_group].reset_index(drop=True)
             output_rows = []
-
             progress_bar = st.progress(0)
-
             total_rows = len(selected_group_df)
+            
 
-            for idx, row in (
-                selected_group_df.iterrows()
-            ):
+            for idx, row in (selected_group_df.iterrows()):
 
                 company = row["company"]
-
                 family = row["family"]
-
                 grade = row["grade"]
-
                 location = row["location"]
-
                 price_point = row["price_point"]
-
-                delivery_location = row[
-                    "delivery_location"
-                ]
-
+                delivery_location = row["delivery_location"]
                 price = 0
-
                 freight = 0
-
+                
                 try:
 
-                    (
-                        spreadsheet_name,
-                        freight_sheet_name
-                    ) = (
-                        utilities.get_spreadsheet_name(
-                            company,
-                            family,
-                            price_point
-                        )
-                    )
+                    (spreadsheet_name, freight_sheet_name) = (utilities.get_spreadsheet_name(
+                                        company, family, price_point))
 
                     # =========================
                     # PRICE
                     # =========================
 
-                    (
-                        price_df,
-                        circular_date
-                    ) = (
-                        read_data
-                        .read_pricing_data_cached(
-                            spreadsheet_name,
-                            price_date
-                        )
-                    )
+                    (price_df, circular_date) = (read_data.read_pricing_data_cached(
+                                    spreadsheet_name, price_date))
 
-                    price = utilities.get_price(
-                        price_df,
-                        grade,
-                        location
-                    )
+                    price,msg = utilities.get_price(price_df, grade, location)
+                    # st.write(company, price)
 
-                    if price is None:
+                    if msg == "No matching location found":
+                        st.write("I am here")
                         price = 0
 
                 except:
-
                     price = 0
 
                 # =========================
                 # FREIGHT
                 # =========================
 
-                if (
-                    price_point == "Plant"
-                    and company
-                    in utilities
-                    .SPECIAL_FREIGHT_COMPANIES
-                ):
-
+                if (price_point == "Plant" and company in utilities.SPECIAL_FREIGHT_COMPANIES):
                     try:
+                        (freight_df, freight_date) = (read_data.read_freight_data_cached(
+                                freight_sheet_name,price_date))
 
-                        (
-                            freight_df,
-                            freight_date
-                        ) = (
-                            read_data
-                            .read_freight_data_cached(
-                                freight_sheet_name,
-                                price_date
-                            )
-                        )
-
-                        freight = (
-                            utilities.get_freight(
-                                freight_df,
-                                delivery_location
-                            )
-                        )
+                        freight = (utilities.get_freight(freight_df, delivery_location))
 
                         if freight is None:
                             freight = 0
 
                     except:
-
                         freight = 0
 
                 # =========================
                 # OUTPUT
                 # =========================
-
+                # st.write(company, price, freight)
                 output_rows.append({
-
                     "Company": company,
-
                     # "Family": family,
-
                     "Grade": grade,
-
                     # "Location": location,
-
                     # "Price Point": price_point,
-
-                    # "Delivery Location":
-                    #     delivery_location,
-
+                    # "Delivery Location": delivery_location,
                     "Price": price,
-
                     "Freight": freight,
-
-                    "Net Price":
-                        price + freight
+                    "Net Price": price + freight
                 })
 
-                progress_bar.progress(
-                    (idx + 1) / total_rows
-                )
+                progress_bar.progress((idx + 1) / total_rows)
 
             progress_bar.empty()
 
-            st.session_state.price_output_df = (
-                pd.DataFrame(output_rows)
-            )
+            st.session_state.price_output_df = (pd.DataFrame(output_rows))
 
     # =====================================
     # DATA EDITOR
     # =====================================
 
-    if (
-        st.session_state.price_output_df
-        is not None
-    ):
+    if (st.session_state.price_output_df is not None):
 
         edited_df = st.data_editor(
             st.session_state.price_output_df,
@@ -455,31 +244,18 @@ with tab_price:
         # RECALCULATE BUTTON
         # =================================
 
-        recalculate_clicked = st.button(
-            "Recalculate Net Price"
-        )
+        recalculate_clicked = st.button("Recalculate Net Price")
 
         if recalculate_clicked:
 
-            edited_df["Price"] = pd.to_numeric(
-                edited_df["Price"],
-                errors="coerce"
-            ).fillna(0)
+            edited_df["Price"] = pd.to_numeric(edited_df["Price"], errors="coerce").fillna(0)
 
-            edited_df["Freight"] = pd.to_numeric(
-                edited_df["Freight"],
-                errors="coerce"
-            ).fillna(0)
+            edited_df["Freight"] = pd.to_numeric(edited_df["Freight"], errors="coerce").fillna(0)
 
-            edited_df["Net Price"] = (
-                edited_df["Price"]
-                + edited_df["Freight"]
-            )
+            edited_df["Net Price"] = (edited_df["Price"] + edited_df["Freight"])
 
             # Save updated dataframe
-            st.session_state.price_output_df = (
-                edited_df.copy()
-            )
+            st.session_state.price_output_df = (edited_df.copy())
 
             st.rerun()
 
@@ -489,23 +265,11 @@ with tab_price:
 
         totals = pd.DataFrame([{
 
-            "Price": 
-                pd.to_numeric(
-                    edited_df["Price"],
-                    errors="coerce"
-                ).fillna(0).sum(),
+            "Price": pd.to_numeric( edited_df["Price"], errors="coerce").fillna(0).sum(),
 
-            "Freight":
-                pd.to_numeric(
-                    edited_df["Freight"],
-                    errors="coerce"
-                ).fillna(0).sum(),
+            "Freight": pd.to_numeric( edited_df["Freight"], errors="coerce").fillna(0).sum(),
 
-            "Net Price":
-                pd.to_numeric(
-                    edited_df["Net Price"],
-                    errors="coerce"
-                ).fillna(0).sum()
+            "Net Price": pd.to_numeric(edited_df["Net Price"], errors="coerce").fillna(0).sum()
         }])
 
 with tab_create:
@@ -513,7 +277,7 @@ with tab_create:
 
         for i, row in enumerate(st.session_state.rows):
 
-            cols = st.columns([1,1,1,1,1,1,0.4])
+            cols = st.columns([1,1,1,1,1,1,1,0.4])
 
             row["company"] = cols[0].selectbox(
                 "Company",
@@ -527,13 +291,19 @@ with tab_create:
                 key=f"family_{i}"
             )
 
-            row["grade"] = cols[2].text_input(
+            row["category"] = cols[2].selectbox(
+                "Category",
+                utilities.CATEGORY,
+                key=f"category_{i}"
+            )
+
+            row["grade"] = cols[3].text_input(
                 "Grade",
                 value=row["grade"],
                 key=f"grade_{i}"
             )
 
-            row["location"] = cols[3].text_input(
+            row["location"] = cols[4].text_input(
                 "Location",
                 value=row["location"],
                 key=f"location_{i}"
@@ -544,7 +314,7 @@ with tab_create:
                 []
             )
 
-            row["price_point"] = cols[4].selectbox(
+            row["price_point"] = cols[5].selectbox(
                 "Price Point",
                 available_price_points,
                 key=f"price_point_{i}"
@@ -555,7 +325,7 @@ with tab_create:
                 and row["company"] in utilities.SPECIAL_FREIGHT_COMPANIES
             ):
 
-                row["delivery_location"] = cols[5].text_input(
+                row["delivery_location"] = cols[6].text_input(
                     "Delivery Location",
                     value=row.get("delivery_location", ""),
                     key=f"delivery_location_{i}"
@@ -566,7 +336,7 @@ with tab_create:
                 row["delivery_location"] = ""
 
             
-            if cols[6].form_submit_button("❌",key=f"delete_button_{i}",use_container_width=True):
+            if cols[7].form_submit_button("❌",key=f"delete_button_{i}",use_container_width=True):
 
                 delete_row(i)
 
@@ -596,6 +366,7 @@ with tab_create:
                     group_name,
                     row["company"],
                     row["family"],
+                    row["category"],
                     row["grade"],
                     row["location"],
                     row["price_point"],
@@ -652,6 +423,7 @@ with tab_modify:
                     [
                         "company",
                         "family",
+                        "category",
                         "grade",
                         "location",
                         "price_point",
@@ -669,7 +441,7 @@ with tab_modify:
                 st.session_state.modify_rows
             ):
 
-                cols = st.columns([1,1,1,1,1,1,0.4])
+                cols = st.columns([1,1,1,1,1,1,1,0.4])
 
                 row["company"] = cols[0].selectbox(
                     "Company",
@@ -693,13 +465,24 @@ with tab_modify:
                     key=f"{selected_group}_modify_family_{i}"
                 )
 
-                row["grade"] = cols[2].text_input(
+                row["category"] = cols[2].selectbox(
+                    "Category",
+                    utilities.CATEGORY,
+                    index=(
+                        utilities.CATEGORY.index(row["category"])
+                        if row["category"] in utilities.CATEGORY
+                        else 0
+                    ),
+                    key=f"{selected_group}_modify_category_{i}"
+                )
+
+                row["grade"] = cols[3].text_input(
                     "Grade",
                     value=row["grade"],
                     key=f"{selected_group}_modify_grade_{i}"
                 )
 
-                row["location"] = cols[3].text_input(
+                row["location"] = cols[4].text_input(
                     "Location",
                     value=row["location"],
                     key=f"{selected_group}_modify_location_{i}"
@@ -710,7 +493,7 @@ with tab_modify:
                     []
                 )
 
-                row["price_point"] = cols[4].selectbox(
+                row["price_point"] = cols[5].selectbox(
                     "Price Point",
                     available_price_points,
                     index=(
@@ -731,7 +514,7 @@ with tab_modify:
                 ):
 
                     row["delivery_location"] = (
-                        cols[5].text_input(
+                        cols[6].text_input(
                             "Delivery Location",
                             value=row.get(
                                 "delivery_location",
@@ -745,7 +528,7 @@ with tab_modify:
 
                     row["delivery_location"] = ""
 
-                if cols[6].form_submit_button(
+                if cols[7].form_submit_button(
                     "❌",
                     key=f"modify_delete_{i}",
                     use_container_width=True
@@ -771,6 +554,7 @@ with tab_modify:
                     {
                         "company": "",
                         "family": "",
+                        "category": "",
                         "grade": "",
                         "location": "",
                         "price_point": "",
@@ -800,6 +584,7 @@ with tab_modify:
                     "group_name",
                     "company",
                     "family",
+                    "category",
                     "grade",
                     "location",
                     "price_point",
@@ -813,6 +598,7 @@ with tab_modify:
                             row["group_name"],
                             row["company"],
                             row["family"],
+                            row["category"],
                             row["grade"],
                             row["location"],
                             row["price_point"],
@@ -829,6 +615,7 @@ with tab_modify:
                         selected_group,
                         row["company"],
                         row["family"],
+                        row["category"],
                         row["grade"],
                         row["location"],
                         row["price_point"],

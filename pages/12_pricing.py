@@ -40,7 +40,7 @@ if submit_button:
     try:
         df, circular_date = read_data.read_pricing_data(spreadsheet_name, price_date)
         # Get Price from the dataframe
-        price = utilities.get_price(df,grade,location)
+        price, msg = utilities.get_price(df,grade,location)
         st.write("Date of Price Circular : ", circular_date)
         st.write("Price = ", price)
     except:

@@ -387,6 +387,7 @@ def fetch_price_news():
 # Producer Pricing
 COMPANIES = ["RIL","OPAL","HMEL","IOCL","GAIL","MRPL","NAYARA","HPCL","HPL"]
 FAMILY = ["PE", "PP"]
+CATEGORY = ["RAFFIA", "IM", "LL1", "LL2", "HD IM"]
 PRICE_POINT_MAP = {
     "RIL" : ["Depot", "Plant"],
     "OPAL": ["Depot", "Plant"],
@@ -398,7 +399,7 @@ PRICE_POINT_MAP = {
     "HPCL": ["Depot"],
     "HPL": ["Depot", "Plant"],
 }
-SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL"]
+SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL", "NAYARA"]
 
 def get_price(df, grade_input, location_input):
 
@@ -433,7 +434,7 @@ def get_price(df, grade_input, location_input):
     # -----------------------------
     price = matching_rows.iloc[0][grade_column]
 
-    return price
+    return price, "Match Found"
 
 def get_freight(df, location_input):
 

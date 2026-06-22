@@ -104,6 +104,7 @@ class discount():
                     (df["Billing Date"] <= disc_end)
                 )
             return mask
+        fiscal_year = utilities.get_fiscal_year(select_month,select_year)
 
         # if "Cash Discount" in monthly_discounts:
           
@@ -162,40 +163,54 @@ class discount():
                 df.loc[mask,"Net Discount"] += df.loc[mask,"Month MOU Discount"] + df.loc[mask,"Annual MOU Discount"]
                 df.loc[mask,"Annual Credit Note"] += df.loc[mask,"Annual MOU Discount"]*df.loc[mask, "Quantity"]
                 
-        if "Freight Discount" in monthly_discounts:
-            
-            discounts = monthly_discounts["Freight Discount"]
+        if "Freight Discount" in monthly_discounts or fiscal_year==2026:
+               
             cmr_df = st.session_state["CMR Data"]
-            # Merge distance into sales
-            df = df.merge(
-                cmr_df[["Ship-to Party", "Warehouse Distance"]],
-                on="Ship-to Party",
-                how="left"
-            )
 
-            if df["Warehouse Distance"].isna().any():
-                missing = df[df["Warehouse Distance"].isna()]["Ship-to Party"].unique()
-                raise ValueError(f"Missing distance for Ship-to Party: {missing}")
-            
-            for disc in discounts:
-                less_dist_value = disc.get("less_dist_value", 0.0)
-                high_dist_value = disc.get("high_dist_value", 0.0)
-                material_groups = disc.get("material_groups", [])
+            if fiscal_year==2026:
+                # Merge Freight2026 into sales
+                df = df.merge(
+                    cmr_df[["Ship-to Party", "Freight2026"]],
+                    on="Ship-to Party",
+                    how="left"
+                )
+                df = df.rename(columns={'Freight2026': 'Freight Discount'})
+                df["Month Credit Note"] += df["Freight Discount"]*df["Quantity"]
+                df["Month Discount"] += df["Freight Discount"]
+                df["Net Discount"] += df["Freight Discount"]
 
-                # Normalize material groups (safety)
-                if isinstance(material_groups, str):
-                    material_groups = [material_groups]
+            else:              
+                # Merge distance into sales
+                discounts = monthly_discounts["Freight Discount"]
+                df = df.merge(
+                    cmr_df[["Ship-to Party", "Warehouse Distance"]],
+                    on="Ship-to Party",
+                    how="left"
+                )
 
-                disc_start = pd.to_datetime(disc["start_date"])
-                disc_end = pd.to_datetime(disc["end_date"])
+                if df["Warehouse Distance"].isna().any():
+                    missing = df[df["Warehouse Distance"].isna()]["Ship-to Party"].unique()
+                    raise ValueError(f"Missing distance for Ship-to Party: {missing}")
+                
+                for disc in discounts:
+                    less_dist_value = disc.get("less_dist_value", 0.0)
+                    high_dist_value = disc.get("high_dist_value", 0.0)
+                    material_groups = disc.get("material_groups", [])
 
-                # Build combined eligibility mask
-                mask = apply_mask (df,material_groups,disc_start,disc_end)
+                    # Normalize material groups (safety)
+                    if isinstance(material_groups, str):
+                        material_groups = [material_groups]
 
-                df.loc[mask, "Freight Discount"] = df.loc[mask, "Warehouse Distance"].apply(
-                    lambda d: less_dist_value if pd.notna(d) and d <= 100 else high_dist_value)
+                    disc_start = pd.to_datetime(disc["start_date"])
+                    disc_end = pd.to_datetime(disc["end_date"])
 
-                df = df.drop("Warehouse Distance", axis=1)
+                    # Build combined eligibility mask
+                    mask = apply_mask (df,material_groups,disc_start,disc_end)
+
+                    df.loc[mask, "Freight Discount"] = df.loc[mask, "Warehouse Distance"].apply(
+                        lambda d: less_dist_value if pd.notna(d) and d <= 100 else high_dist_value)
+
+                    df = df.drop("Warehouse Distance", axis=1)
 
                 df.loc[mask,"Month Credit Note"] += df.loc[mask,"Freight Discount"]*df.loc[mask, "Quantity"]
                 df.loc[mask,"Month Discount"] += df.loc[mask,"Freight Discount"]
