@@ -181,14 +181,29 @@ class read_data():
         worksheet_name = read_data.get_nearest_lower_date(sheet_names,price_date)
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
         return df, worksheet_name
-    
+
+    @st.cache_data(ttl=3600)
+    def read_pricing_data_cached(
+        spreadsheet_name,
+        price_date
+    ):
+
+        return read_data.read_pricing_data(
+            spreadsheet_name,
+            price_date
+        )
+
     def read_freight_data(freight_sheet_name,price_date):
         spreadsheet_url = st.secrets["pricing"][freight_sheet_name]
         spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
         worksheet_name = read_data.get_nearest_lower_date(sheet_names,price_date)
         df = read_data.read_gsheet(spreadsheet_url, worksheet_name)
         return df, worksheet_name
-    
+
+    @st.cache_data(ttl=3600)
+    def read_freight_data_cached(freight_sheet_name,price_date):
+        return read_data.read_freight_data(freight_sheet_name,price_date)
+     
     @st.cache_data(ttl=300)
     def read_groups_data(spreadsheet_url):
 
@@ -202,26 +217,12 @@ class read_data():
             worksheet.get_all_records()
         )
 
-
     @st.cache_data(ttl=3600)
-    def read_pricing_data_cached(
-        spreadsheet_name,
-        price_date
-    ):
-
-        return read_data.read_pricing_data(
-            spreadsheet_name,
-            price_date
-        )
+    def read_discount_data(spreadsheet_url,family):
+        # spreadsheet_url = st.secrets["pricing"]["PUBLISHED_DISCOUNT_MASTER_SHEET"]
+        df = read_data.read_gsheet(spreadsheet_url,family)
+        df["Date From"] = pd.to_datetime(df["Date From"],format="mixed").dt.date
+        df["Date To"] = pd.to_datetime(df["Date To"],format="mixed").dt.date
+        return df
 
 
-    @st.cache_data(ttl=3600)
-    def read_freight_data_cached(
-        freight_sheet_name,
-        price_date
-    ):
-
-        return read_data.read_freight_data(
-            freight_sheet_name,
-            price_date
-        )

@@ -6,7 +6,7 @@ import streamlit as st
 from mitosheet.streamlit.v1 import spreadsheet
 import requests
 from bs4 import BeautifulSoup
-
+from reading_gsheet_data import read_data
 
 FISCAL_START = 4
 
@@ -199,14 +199,14 @@ def draw_histogram_bar(df,x,y,color):
     )
     return fig
 
-def download_excel(df, filename='data.xlsx', button_label='📥 Download Excel', key='download_button'):
+def download_excel(df, filename='data.xlsx', button_label='📥 Download Excel', key='download_button',index=False):
     """
     Create a download button for formatted Excel file in Streamlit
     """
     buffer = BytesIO()
     
     with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
+        df.to_excel(writer, index=index, sheet_name='Sheet1')
         
         workbook = writer.book
         worksheet = writer.sheets['Sheet1']
@@ -232,14 +232,14 @@ def download_excel(df, filename='data.xlsx', button_label='📥 Download Excel',
     
     return buffer.getvalue()
 
-def df_actions(df, filename='data.xlsx', key='df_actions'):
+def df_actions(df, filename='data.xlsx', key='df_actions',index=False):
     col1, col2 = st.columns(2)
     
     with col1:
         # Download button
         st.download_button(
             label="📥 Download Excel",
-            data=download_excel(df, filename),
+            data=download_excel(df=df, filename=filename, index=index),
             file_name=filename,
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             use_container_width=True,
@@ -399,7 +399,7 @@ PRICE_POINT_MAP = {
     "HPCL": ["Depot"],
     "HPL": ["Depot", "Plant"],
 }
-SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL", "NAYARA"]
+SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL", "NAYARA","MRPL"]
 
 def get_price(df, grade_input, location_input):
 
@@ -453,3 +453,244 @@ def get_spreadsheet_name(company,mat_family,price_point):
     spreadsheet_name = (f"{company}_{mat_family}_{price_point}").upper()
     freight_sheet_name = (f"{company}_freight").upper()
     return spreadsheet_name,freight_sheet_name
+
+# DISCOUNT
+
+
+def get_discount_dataframe(selected_family, show_published, show_unpublished):
+    spreadsheet_url = st.secrets["pricing"]["PUBLISHED_DISCOUNT_MASTER_SHEET"]
+    published_discount_df = read_data.read_discount_data(spreadsheet_url,selected_family)
+
+    spreadsheet_url = st.secrets["pricing"]["UNPUBLISHED_DISCOUNT_MASTER_SHEET"]
+    unpublished_discount_df = read_data.read_discount_data(spreadsheet_url,selected_family)
+    
+    if show_published and show_unpublished:
+        # Merge both dataframes vertically since they share identical headers
+        discount_df = pd.concat([published_discount_df, unpublished_discount_df], ignore_index=True)
+        
+    elif show_published:
+        discount_df = published_discount_df
+    
+    elif show_unpublished:
+        discount_df = unpublished_discount_df
+        
+    else:
+        # Create a completely blank dataframe matching the expected schema headers
+        discount_df = pd.DataFrame(columns=published_discount_df.columns)
+
+    # discount_df = published_discount_df.copy()
+
+    return discount_df
+# Calculate Prices and Discounts
+def get_discounts(selected_group_df, selected_family, selected_qty, price_date,
+                             show_published, show_unpublished):
+    
+    companies = selected_group_df["company"].unique()
+    pricing_df = pd.DataFrame( columns=companies)
+   
+    # pricing_df.loc["Grade", :] = selected_group_df["grade"].values
+    # pricing_df = pd.DataFrame(0.0, index=PRICE_ROWS, columns=companies)
+    
+      
+    discount_df = get_discount_dataframe(selected_family,show_published, show_unpublished)
+    discount_df = discount_df[(discount_df["Date From"] <= price_date) &
+                    (discount_df["Date To"] >= price_date)]
+    
+    # 1. 🚀 INITIALIZE PROGRESS BAR CONTEXT
+    total_rows = len(selected_group_df)
+    progress_text = "Fetching pricing matrix structures. Please wait..."
+    progress_bar = st.progress(0, text=progress_text)
+
+    for idx, row in selected_group_df.iterrows():
+
+        # 2. UPDATE PROGRESS PERCENTAGE DYNAMICALLY
+        current_percentage = int(((idx + 1) / total_rows) * 100)
+        progress_bar.progress(current_percentage, text=f"{progress_text} ({current_percentage}%)")
+
+        company = row["company"]
+        family = row["family"]
+        grade = row["grade"]
+        location = row["location"]
+        price_point = row["price_point"]
+        delivery_location = row["delivery_location"]
+
+        # PRICE
+        price = 0
+        try:
+            spreadsheet_name, freight_sheet_name = (
+                get_spreadsheet_name(company,family,price_point))
+            price_df, price_circular_date = (
+                read_data.read_pricing_data_cached(spreadsheet_name,price_date))
+            price, msg = get_price(price_df,grade,location)
+            if msg == "No matching location found": price = 0
+        except: 
+            price = 0
+        pricing_df.loc["Basic Price", company] = price
+        st.session_state.selected_group_df.at[idx, "Price Circular Date"] = price_circular_date
+        # st.write(company, price)
+
+        # FREIGHT
+        freight = 0
+        if (price_point == "Plant" and company in SPECIAL_FREIGHT_COMPANIES):
+            try:
+                (freight_df, freight_circular_date) = (read_data.read_freight_data_cached(
+                        freight_sheet_name,price_date))
+                freight = (get_freight(freight_df, delivery_location))
+                if freight is None: 
+                    freight = 0
+                if freight_circular_date is not None:
+                    st.session_state.selected_group_df.at[idx, "Freight Circular Date"] = freight_circular_date
+            except:
+                freight = 0
+        pricing_df.loc["Freight", company] = freight
+        
+
+        # DISCOUNT
+        for _, disc_row in discount_df.iterrows():
+
+            disc_company = disc_row["company"]
+            discount = disc_row["Discount"]
+
+            qty_from = disc_row["Qty From"]
+            qty_to = disc_row["Qty To"]
+            amount = disc_row["Amount"]
+
+            # Check quantity slab
+            if not (qty_from <= selected_qty <= qty_to):
+                continue
+
+            # Create row if it doesn't exist
+            if discount not in pricing_df.index:
+                pricing_df.loc[discount] = 0
+            else:
+                # Apply to all companies
+                if disc_company == "ALL":
+                    pricing_df.loc[discount, :] = amount
+                # Apply to a specific company
+                elif disc_company in pricing_df.columns:
+                    pricing_df.loc[discount,disc_company] = amount
+
+    # 3. 🧼 EMPTY PROGRESS BAR ELEMENT ON LOOP COMPLETION
+    progress_bar.empty()
+    # Add Hidden Discount Row
+    pricing_df.loc["Additi Discount", :] = 0.0
+    # Rows to be deducted
+    deduction_rows = [
+        row for row in pricing_df.index
+        if row not in ["Grade","Basic Price", "Freight"]
+    ]
+
+    pricing_df.loc["Net Price"] = (pricing_df.loc["Basic Price"]+ pricing_df.loc["Freight"]
+                                        - pricing_df.loc[deduction_rows].sum())
+    
+    # st.write(pricing_df)
+    # if "pricing_df" not in st.session_state:
+    st.session_state.pricing_df = pricing_df.copy()
+
+# Isolated fragment container
+@st.fragment
+def pricing_editor_fragment():
+    with st.container():
+        # Wrap the block in a form to prevent live keystroke refreshes
+        with st.form(key="editor"):
+            edited_df = st.data_editor(
+                st.session_state.pricing_df, 
+                width="stretch",
+                hide_index=False,
+                disabled= ["Grade", "Basic Price",  "Net Price"],
+                key="pricing_editor"
+            )
+            
+            # When clicked, ONLY this fragment reruns!
+            if st.form_submit_button("🔄 Recalculate"):
+                
+                # Restore Basic Price
+                edited_df.loc["Basic Price"] = st.session_state.pricing_df.loc["Basic Price"]
+
+                # Filter rows to calculate deductions
+                deduction_rows = [
+                    r for r in edited_df.index
+                    if r not in ["Grade", "Basic Price", "Freight", "Net Price"]
+                ]
+
+                # Calculate new Net Price
+                edited_df.loc["Net Price"] = (
+                    edited_df.loc["Basic Price"]
+                    + edited_df.loc["Freight"]
+                    - edited_df.loc[deduction_rows].sum()
+                )
+
+                # Update Session State
+                st.session_state.pricing_df = edited_df
+                
+                # Force the data_editor inside this fragment to visually refresh immediately
+                st.rerun(scope="fragment")
+        col1, col2 = st.columns([2,1])
+        with col1:
+            df_actions(st.session_state.pricing_df,index=True)
+        with col2:
+            is_view_group = st.toggle("View Pricing Group")
+                
+        if is_view_group: 
+            st.dataframe(st.session_state.selected_group_df,width="stretch",hide_index=True)
+        
+
+# Discount Screen
+@st.fragment
+def render_interactive_pricing_zone(group_df):
+    with st.container(border=True):
+
+        col1, col2, col3, col4 = st.columns(4,vertical_alignment="top")
+        temp_df = group_df
+
+        with col1:
+            price_date = st.date_input( "Price Date", format="DD/MM/YYYY")
+        
+        with col2:
+            all_family = sorted(temp_df["family"].unique())
+            selected_family = st.selectbox("Family", all_family)
+            temp_df = temp_df[temp_df["family"]== selected_family]
+
+        with col3:
+            all_category = sorted(temp_df["category"].unique())
+            selected_category = st.selectbox("category", all_category)
+            temp_df = temp_df[temp_df["category"]== selected_category]
+
+        with col4:
+            selected_qty = st.number_input("Quantity",min_value=0,max_value=9999)
+        
+        col1, col2, col3 = st.columns([1,1,2])
+        with col1:
+            all_location = sorted(temp_df["location"].unique())
+            selected_location = st.selectbox("Location", all_location)
+            temp_df = temp_df[temp_df["location"]== selected_location]
+            
+        with col2:
+            all_price_point = sorted(temp_df["price_point"].unique())
+            selected_price_point = st.selectbox("Price Point", all_price_point)
+            temp_df = temp_df[temp_df["price_point"]== selected_price_point]
+            # st.write(temp_df)
+
+        with col3:
+            all_groups = sorted(temp_df["group_name"].unique())
+            selected_group = st.selectbox("Group Name", all_groups)
+
+
+        with col1:
+            show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
+        with col2:
+            show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+        
+        with col3:
+            submit_price = st.button("Get Prices",type="primary",width="stretch")
+
+    if submit_price:
+        
+        with st.container(border=False):
+            selected_group_df = group_df[group_df["group_name"]== selected_group].reset_index(drop=True)
+            selected_group_df["Price Circular Date"]= selected_group_df["Freight Circular Date"]= ""
+            st.session_state.selected_group_df = selected_group_df
+            get_discounts(selected_group_df, selected_family, selected_qty, price_date, show_published, show_unpublished)
+            pricing_editor_fragment()
+            
+
