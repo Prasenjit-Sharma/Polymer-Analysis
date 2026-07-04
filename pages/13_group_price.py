@@ -16,7 +16,8 @@ if "rows" not in st.session_state:
 
 # UI
 
-tab_price, tab_create, tab_modify, tab_delete = st.tabs(["Find Price","Create Group","Modify Group","Delete Group"])
+tab_price, tab_create, tab_modify, tab_delete = st.tabs([":material/search_activity: Find Price",
+            ":material/add_box: Create Group",":material/amend: Modify Group",":material/delete: Delete Group"])
 
 if "price_output_df" not in st.session_state:
     st.session_state.price_output_df = None
@@ -35,7 +36,7 @@ with tab_price:
 
     with col1:
 
-        if st.button("🔄 Refresh Groups"):
+        if st.button(":material/change_circle: Refresh Groups"):
             read_data.read_groups_data.clear()
             st.rerun()
     group_df = read_data.read_groups_data(SPREADSHEET_URL)

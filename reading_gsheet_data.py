@@ -149,7 +149,12 @@ class read_data():
         sheet_titles = [ws.title for ws in spreadsheet.worksheets()]
         return spreadsheet, sheet_titles
     
+    @st.cache_data(ttl=3600)
+    def get_sheet_names_cached(spreadsheet_url):
 
+        return read_data.get_sheet_names(
+            spreadsheet_url)
+    
     def get_nearest_lower_date(sheet_names, input_date):
         # Convert only if string
         if isinstance(input_date, str):
@@ -183,15 +188,10 @@ class read_data():
         return df, worksheet_name
 
     @st.cache_data(ttl=3600)
-    def read_pricing_data_cached(
-        spreadsheet_name,
-        price_date
-    ):
+    def read_pricing_data_cached(spreadsheet_name,price_date):
 
         return read_data.read_pricing_data(
-            spreadsheet_name,
-            price_date
-        )
+            spreadsheet_name,price_date)
 
     def read_freight_data(freight_sheet_name,price_date):
         spreadsheet_url = st.secrets["pricing"][freight_sheet_name]

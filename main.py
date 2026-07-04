@@ -48,8 +48,10 @@ def page_nav():
         #     st.Page("pages/9_data_ai.py", title="Data Charts", icon="🌟"),
         # ],
         "Pricing": [
-            st.Page("pages/12_pricing.py", title="Price Finder"),
-            st.Page("pages/13_group_price.py", title="Group Pricing"),
+            st.Page("pages/13_group_price.py", title="Product Group", icon=":material/ad_group:"),
+            st.Page("pages/12_pricing.py", title="Product Price", icon=":material/balance:"),
+            st.Page("pages/14_compare_price.py", title="Compare Price", icon=":material/price_check:"),
+            st.Page("pages/15_pricing_excel.py", title="Price Circular", icon=":material/pinboard:")
             
         ],
         "Account": [

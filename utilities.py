@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from reading_gsheet_data import read_data
 import time
+from datetime import datetime
 
 FISCAL_START = 4
 
@@ -41,6 +42,13 @@ def enforce_string_ids(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
             )
     return df
 
+def parse_sheet_date(date_str):
+    """Safely parse DD.MM.YYYY sheet names into a date object for comparison."""
+    try:
+        return datetime.strptime(date_str.strip(), "%d.%m.%Y").date()
+    except ValueError:
+        # Returns None if a sheet has a non-date name (e.g., "Sheet1", "Summary")
+        return None
 # Convert certain columns to strings
 def prepare_df_for_aggrid(df, columns_to_convert=None):
     df_copy = df.copy()

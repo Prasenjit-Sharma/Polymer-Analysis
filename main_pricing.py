@@ -13,11 +13,14 @@ if "rows" not in st.session_state:
     st.session_state.rows = []
 
 def page_nav():
-    product_groups_page = st.Page("pages/13_group_price.py", title="Product Group", icon=":material/percent_discount:")
-    product_price_page = st.Page("pages/12_pricing.py", title="Product Price", icon=":material/percent_discount:")
-    product_compare_page = st.Page("pages/14_compare_price.py", title="Compare Price", icon=":material/percent_discount:")
+    product_groups_page = st.Page("pages/13_group_price.py", title="Product Group", icon=":material/ad_group:")
+    product_price_page = st.Page("pages/12_pricing.py", title="Product Price", icon=":material/balance:")
+    product_compare_page = st.Page("pages/14_compare_price.py", title="Compare Price", icon=":material/price_check:")
+    price_circular_page = st.Page("pages/15_pricing_excel.py", title="Price Circular", icon=":material/pinboard:")
 
-    pg = st.navigation([product_groups_page,product_compare_page,product_price_page],position="top")
+
+    pg = st.navigation([product_groups_page,product_compare_page,product_price_page,
+                        price_circular_page],position="top")
 
     return pg
 
