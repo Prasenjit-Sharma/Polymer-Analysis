@@ -9,39 +9,10 @@ utilities.apply_common_styles("Group Price Finder")
 SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
 
 # SESSION STATE
-
-
 if "rows" not in st.session_state:
+    st.session_state.rows = []
+# st.session_state.rows = []
 
-    st.session_state.rows = [
-        {
-            "company": "",
-            "family": "",
-            "grade": "",
-            "location": "",
-            "price_point": "",
-            "delivery_location": ""
-        }
-    ]
-
-# FUNCTIONS
-
-def add_row():
-
-    st.session_state.rows.append(
-        {
-            "company": "",
-            "family": "",
-            "category":"",
-            "grade": "",
-            "location": "",
-            "price_point": "",
-            "delivery_location": ""
-        }
-    )
-
-def delete_row(index):
-    st.session_state.rows.pop(index)
 
 # UI
 
@@ -76,118 +47,11 @@ with tab_price:
         
         utilities.render_interactive_pricing_zone(group_df)
         
-
-                            
-            
-
-
-
-    
-
 with tab_create:
-    with st.form("group_form"):
-
-        for i, row in enumerate(st.session_state.rows):
-
-            cols = st.columns([1,1,1,1,1,1,1,0.4])
-
-            row["company"] = cols[0].selectbox(
-                "Company",
-                utilities.COMPANIES,
-                key=f"company_{i}"
-            )
-
-            row["family"] = cols[1].selectbox(
-                "Family",
-                utilities.FAMILY,
-                key=f"family_{i}"
-            )
-
-            row["category"] = cols[2].selectbox(
-                "Category",
-                utilities.CATEGORY,
-                key=f"category_{i}"
-            )
-
-            row["grade"] = cols[3].text_input(
-                "Grade",
-                value=row["grade"],
-                key=f"grade_{i}"
-            )
-
-            row["location"] = cols[4].text_input(
-                "Location",
-                value=row["location"],
-                key=f"location_{i}"
-            )
-
-            available_price_points = utilities.PRICE_POINT_MAP.get(
-                row["company"],
-                []
-            )
-
-            row["price_point"] = cols[5].selectbox(
-                "Price Point",
-                available_price_points,
-                key=f"price_point_{i}"
-            )
-
-            if (
-                row["price_point"] == "Plant"
-                and row["company"] in utilities.SPECIAL_FREIGHT_COMPANIES
-            ):
-
-                row["delivery_location"] = cols[6].text_input(
-                    "Delivery Location",
-                    value=row.get("delivery_location", ""),
-                    key=f"delivery_location_{i}"
-                )
-
-            else:
-
-                row["delivery_location"] = ""
-
-            
-            if cols[7].form_submit_button("❌",key=f"delete_button_{i}",use_container_width=True):
-
-                delete_row(i)
-
-                st.rerun()
-
-
-        add_clicked = st.form_submit_button("➕ Add Row")
-        group_name = st.text_input("Group Name",key="group_name")
-        save_clicked = st.form_submit_button("💾 Save Group")
-
-        if add_clicked:
-
-            add_row()
-
-            st.rerun()
-
-        if save_clicked:
-
-            spreadsheet,sheet_names = read_data.get_sheet_names(SPREADSHEET_URL)
-
-            worksheet = spreadsheet.worksheet("Groups")
-            rows_to_save = []
-
-            for row in st.session_state.rows:
-
-                rows_to_save.append([
-                    group_name,
-                    row["company"],
-                    row["family"],
-                    row["category"],
-                    row["grade"],
-                    row["location"],
-                    row["price_point"],
-                    row["delivery_location"]
-                ])
-
-            worksheet.append_rows(rows_to_save)
-            read_data.read_groups_data.clear()
-            st.success("Group saved successfully")
+    
+    # utilities.render_create_group()
+    utilities.new_render_create_group()
+    utilities.save_group()
 
 with tab_modify:
 

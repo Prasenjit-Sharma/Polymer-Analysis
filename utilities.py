@@ -7,6 +7,7 @@ from mitosheet.streamlit.v1 import spreadsheet
 import requests
 from bs4 import BeautifulSoup
 from reading_gsheet_data import read_data
+import time
 
 FISCAL_START = 4
 
@@ -454,9 +455,104 @@ def get_spreadsheet_name(company,mat_family,price_point):
     freight_sheet_name = (f"{company}_freight").upper()
     return spreadsheet_name,freight_sheet_name
 
+# CREATE FORM
+
+def add_row():
+    row_id = str(time.time_ns())
+    st.session_state.rows.append(
+        {
+            "id": row_id,
+            "company": "",
+            "family": "",
+            "category":"",
+            "grade": "",
+            "location": "",
+            "price_point": "",
+            "delivery_location": ""
+        }
+    )
+
+def delete_row(row_id):
+    st.session_state.rows = [r for r in st.session_state.rows if r["id"] != row_id]
+
+def clear_pricing_data():
+    st.session_state.pricing_df = []
+    st.session_state.rows = []
+    st.session_state.selected_group_df = []
+
+@st.fragment
+def new_render_create_group():
+    # Initialize if empty
+    if "rows" not in st.session_state or not st.session_state.rows:
+        st.session_state.rows = []
+        add_row()
+    with st.container(border=True):
+        col1, col2, col3 = st.columns(3, vertical_alignment="bottom")
+        with col1:
+            selected_family = st.selectbox("Family",FAMILY,key="family")
+        with col2:
+            selected_category = st.selectbox("Category",CATEGORY,key="category")
+        with col3:
+            st.button("Clear Data", type="secondary", width="stretch", on_click=clear_pricing_data)
+        
+    with st.container(border=True):
+        # Read directly from session_state so it picks up additions/deletions instantly
+        for row in st.session_state.rows:
+            row_id = row["id"]
+            cols = st.columns([1, 1, 1, 1, 1, 0.4],vertical_alignment="bottom")
+
+            # CRITICAL: Use row_id instead of loop index for all keys
+            row["company"] = cols[0].selectbox("Company",COMPANIES,key=f"company_{row_id}")
+            row["family"] = selected_family
+            row["category"] = selected_category
+            row["grade"] = cols[1].text_input("Grade",value=row["grade"],key=f"grade_{row_id}")
+            row["location"] = cols[2].text_input("Location",value=row["location"],key=f"location_{row_id}")
+            available_price_points = PRICE_POINT_MAP.get(row["company"], [])
+            row["price_point"] = cols[3].selectbox("Price Point",available_price_points,key=f"price_point_{row_id}")
+
+            if row["price_point"] == "Plant" and row["company"] in SPECIAL_FREIGHT_COMPANIES:
+                row["delivery_location"] = cols[4].text_input("Delivery Location",
+                    value=row.get("delivery_location", ""),key=f"delivery_location_{row_id}")
+            else:
+                row["delivery_location"] = ""
+
+            with cols[5]:
+                st.button("❌",key=f"delete_button_{row_id}",on_click=delete_row, args=(row_id,))
+
+        st.button("➕ Add Row", on_click=add_row)        
+        # save_group()
+
+def save_group():
+    SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+    col1, col2 = st.columns(2, vertical_alignment="bottom")
+    with col1:
+        group_name = st.text_input("Group Name",key="group_name")
+    with col2:
+        save_clicked = st.button("💾 Save Group", width="stretch", type="primary")
+    
+
+    if save_clicked:
+        spreadsheet,sheet_names = read_data.get_sheet_names(SPREADSHEET_URL)
+        worksheet = spreadsheet.worksheet("Groups")
+        rows_to_save = []
+
+        for row in st.session_state.rows:
+
+            rows_to_save.append([
+                group_name,
+                row["company"],
+                row["family"],
+                row["category"],
+                row["grade"],
+                row["location"],
+                row["price_point"],
+                row["delivery_location"]
+            ])
+
+        worksheet.append_rows(rows_to_save)
+        read_data.read_groups_data.clear()
+        st.success("Group saved successfully")
 # DISCOUNT
-
-
 def get_discount_dataframe(selected_family, show_published, show_unpublished):
     spreadsheet_url = st.secrets["pricing"]["PUBLISHED_DISCOUNT_MASTER_SHEET"]
     published_discount_df = read_data.read_discount_data(spreadsheet_url,selected_family)
@@ -600,31 +696,34 @@ def pricing_editor_fragment():
                 disabled= ["Grade", "Basic Price",  "Net Price"],
                 key="pricing_editor"
             )
-            
-            # When clicked, ONLY this fragment reruns!
-            if st.form_submit_button("🔄 Recalculate"):
-                
-                # Restore Basic Price
-                edited_df.loc["Basic Price"] = st.session_state.pricing_df.loc["Basic Price"]
+            col1, col2 = st.columns([1,2],vertical_alignment="center")
+            with col1:
+                # When clicked, ONLY this fragment reruns!
+                if st.form_submit_button("🔄 Recalculate", width="stretch", type="primary"):
+                    
+                    # Restore Basic Price
+                    edited_df.loc["Basic Price"] = st.session_state.pricing_df.loc["Basic Price"]
 
-                # Filter rows to calculate deductions
-                deduction_rows = [
-                    r for r in edited_df.index
-                    if r not in ["Grade", "Basic Price", "Freight", "Net Price"]
-                ]
+                    # Filter rows to calculate deductions
+                    deduction_rows = [
+                        r for r in edited_df.index
+                        if r not in ["Grade", "Basic Price", "Freight", "Net Price"]
+                    ]
 
-                # Calculate new Net Price
-                edited_df.loc["Net Price"] = (
-                    edited_df.loc["Basic Price"]
-                    + edited_df.loc["Freight"]
-                    - edited_df.loc[deduction_rows].sum()
-                )
+                    # Calculate new Net Price
+                    edited_df.loc["Net Price"] = (
+                        edited_df.loc["Basic Price"]
+                        + edited_df.loc["Freight"]
+                        - edited_df.loc[deduction_rows].sum()
+                    )
 
-                # Update Session State
-                st.session_state.pricing_df = edited_df
-                
-                # Force the data_editor inside this fragment to visually refresh immediately
-                st.rerun(scope="fragment")
+                    # Update Session State
+                    st.session_state.pricing_df = edited_df
+                    
+                    # Force the data_editor inside this fragment to visually refresh immediately
+                    st.rerun(scope="fragment")
+            with col2:
+                st.info("Note - All fields in table above are editable. Please edit and press Recalculate for new Net Price.")
         col1, col2 = st.columns([2,1])
         with col1:
             df_actions(st.session_state.pricing_df,index=True)
@@ -634,7 +733,6 @@ def pricing_editor_fragment():
         if is_view_group: 
             st.dataframe(st.session_state.selected_group_df,width="stretch",hide_index=True)
         
-
 # Discount Screen
 @st.fragment
 def render_interactive_pricing_zone(group_df):
