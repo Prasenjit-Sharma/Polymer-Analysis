@@ -4,6 +4,8 @@ import utilities
 
 utilities.apply_common_styles("Compare Prices")
 
+if "is_logged_in" not in st.session_state:
+    st.session_state["is_logged_in"] = False
 if "rows" not in st.session_state:
     st.session_state.rows = []
 if "selected_group_df" not in st.session_state:

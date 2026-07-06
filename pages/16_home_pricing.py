@@ -3,6 +3,9 @@ import utilities
 
 utilities.display_market_metrics()
 
+if "is_logged_in" not in st.session_state:
+    st.session_state["is_logged_in"] = False
+
 # Fetching data
 with st.container(border=True):
     
