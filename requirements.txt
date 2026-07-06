@@ -8,3 +8,4 @@ streamlit==1.52.2
 tornado==6.5.4
 tradingview_datafeed==2.1.1
 streamlit-aggrid==1.2.1.post2
+xlsxwriter==3.2.9

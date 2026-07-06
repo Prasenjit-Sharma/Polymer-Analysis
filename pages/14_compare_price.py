@@ -26,6 +26,8 @@ with st.container(border=True):
     with col4:
         if (st.session_state["is_logged_in"]):
             show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+        else:
+            show_unpublished = False
 
     with col5:
         submit_price = st.button("Get Prices",type="primary",width="stretch")

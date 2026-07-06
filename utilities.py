@@ -875,8 +875,9 @@ def render_interactive_pricing_zone(group_df):
         with col2:
             
             if (st.session_state["is_logged_in"]): #"is_logged_in" in st.session_state:
-                
                 show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+            else:
+                show_unpublished = False
         
         with col3:
             submit_price = st.button("Get Prices",type="primary",width="stretch")
