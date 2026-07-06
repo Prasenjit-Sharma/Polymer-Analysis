@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from reading_gsheet_data import read_data
 import time
 from datetime import datetime
+from tvDatafeed import TvDatafeed, Interval
 
 FISCAL_START = 4
 
@@ -343,6 +344,7 @@ def render_discount_json(value):
         st.write(value)
 
 # Scrapping
+@st.cache_data(ttl=3600,show_spinner=False,show_time=True)
 def fetch_price_news():
     url = "https://www.plastemart.com/whats-new-plastics-industry"
     # Using a common browser Header to prevent being blocked
@@ -392,7 +394,93 @@ def fetch_price_news():
     except Exception as e:
         st.error(f"Connection Error: {e}")
         return []
-    
+
+@st.cache_data(ttl=3600,show_spinner=False,show_time=True)
+def get_market_metrics():
+    """
+    Fetches latest rates for Crude and USD-INR directly from TradingView feeds.
+    """
+    try:
+        # Initialize the feed anonymously
+        tv = TvDatafeed()
+        
+        # Define tickers and their respective primary exchange mappings
+        # TV uses specific exchange prefixes: 'TVC' (TradingView Charts) or 'FX_IDC'
+        instruments = [
+            {"name": "Brent Crude", "symbol": "UKOIL", "exchange": "TVC"},
+            {"name": "WTI Crude", "symbol": "USOIL", "exchange": "TVC"},
+            {"name": "USD-INR", "symbol": "USDINR", "exchange": "FX_IDC"},
+            {"name": "Nifty 50", "symbol": "NIFTY", "exchange": "NSE"}
+        ]
+        
+        metrics = {}
+        
+        for inst in instruments:
+            # Fetch the single latest 1-minute interval bar to get the live price
+            data = tv.get_hist(
+                symbol=inst["symbol"],
+                exchange=inst["exchange"],
+                interval=Interval.in_1_minute,
+                n_bars=2
+            )
+            
+            if data is not None and not data.empty:
+                # The last row [-1] is the active/live candle price
+                current_val = data['close'].iloc[-1]
+                # The previous row [-2] provides a baseline to calculate a dynamic trend
+                prev_val = data['close'].iloc[-2]
+                
+                change = current_val - prev_val
+                pct_change = (change / prev_val) * 100 if prev_val != 0 else 0
+                
+                metrics[inst["name"]] = {
+                    "value": round(current_val, 2),
+                    "change": round(change, 2),
+                    "pct_change": round(pct_change, 2)
+                }
+                
+        return metrics
+
+    except Exception as e:
+        st.error(f"TradingView connection error: {e}")
+        return None
+
+def display_market_metrics():
+    # Fetch metrics globally
+    with st.container(border=True):
+        market_data = get_market_metrics()
+
+        if market_data:
+            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+            
+            with m_col1:
+                st.metric(
+                    label="🇮🇳 Nifty 50 Index",
+                    value=f"{market_data['Nifty 50']['value']:,}",  # Formats number with commas
+                    delta=f"{market_data['Nifty 50']['change']} ({market_data['Nifty 50']['pct_change']}%)"
+                )
+
+            with m_col2:
+                st.metric(
+                    label="💵 USD - INR Spot",
+                    value=f"₹{market_data['USD-INR']['value']}",
+                    delta=f"{market_data['USD-INR']['change']} ({market_data['USD-INR']['pct_change']}%)",
+                    delta_color="inverse"
+                )
+                
+            with m_col3:
+                st.metric(
+                    label="🛢️ Brent Crude",
+                    value=f"${market_data['Brent Crude']['value']}",
+                    delta=f"${market_data['Brent Crude']['change']} ({market_data['Brent Crude']['pct_change']}%)"
+                )
+                
+            with m_col4:
+                st.metric(
+                    label="🇺🇸 WTI Crude",
+                    value=f"${market_data['WTI Crude']['value']}",
+                    delta=f"${market_data['WTI Crude']['change']} ({market_data['WTI Crude']['pct_change']}%)"
+                )   
 # Producer Pricing
 COMPANIES = ["RIL","OPAL","HMEL","IOCL","GAIL","MRPL","NAYARA","HPCL","HPL"]
 FAMILY = ["PE", "PP"]
@@ -785,7 +873,10 @@ def render_interactive_pricing_zone(group_df):
         with col1:
             show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
         with col2:
-            show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+            
+            if (st.session_state["is_logged_in"]): #"is_logged_in" in st.session_state:
+                
+                show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
         
         with col3:
             submit_price = st.button("Get Prices",type="primary",width="stretch")

@@ -67,6 +67,7 @@ if "is_logged_in" not in st.session_state:
     st.session_state["is_logged_in"] = False
 
 if not st.session_state["is_logged_in"]:
+    utilities.display_market_metrics()
     with st.container():
         col1, inter_col_space, col2 = st.columns([2, 1, 2])
         with col1:

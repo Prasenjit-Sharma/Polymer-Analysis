@@ -22,14 +22,15 @@ with st.container(border=True):
     with col3:
         show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
     with col4:
-        show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+        if (st.session_state["is_logged_in"]):
+            show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
 
     with col5:
         submit_price = st.button("Get Prices",type="primary",width="stretch")
 
 if submit_price:
     df = pd.DataFrame(st.session_state.rows)
-    st.write(df)
+    # st.write(df)
     selected_family=df["family"]
     st.session_state.selected_group_df = df
     utilities.get_discounts(df, selected_family[0], selected_qty, price_date,
