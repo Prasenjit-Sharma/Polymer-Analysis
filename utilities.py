@@ -551,7 +551,7 @@ def get_spreadsheet_name(company,mat_family,price_point):
     freight_sheet_name = (f"{company}_freight").upper()
     return spreadsheet_name,freight_sheet_name
 
-# CREATE FORM
+# OLD GROUPS CREATE
 
 def add_row():
     row_id = str(time.time_ns())
@@ -648,6 +648,645 @@ def save_group():
         worksheet.append_rows(rows_to_save)
         read_data.read_groups_data.clear()
         st.success("Group saved successfully")
+
+# Discount Screen
+@st.fragment
+def render_interactive_pricing_zone(group_df):
+    with st.container(border=True):
+
+        col1, col2, col3, col4 = st.columns(4,vertical_alignment="top")
+        temp_df = group_df
+
+        with col1:
+            price_date = st.date_input( "Price Date", format="DD/MM/YYYY")
+        
+        with col2:
+            all_family = sorted(temp_df["family"].unique())
+            selected_family = st.selectbox("Family", all_family)
+            temp_df = temp_df[temp_df["family"]== selected_family]
+
+        with col3:
+            all_category = sorted(temp_df["category"].unique())
+            selected_category = st.selectbox("category", all_category)
+            temp_df = temp_df[temp_df["category"]== selected_category]
+
+        with col4:
+            selected_qty = st.number_input("Quantity",min_value=0,max_value=9999)
+        
+        col1, col2, col3 = st.columns([1,1,2])
+        with col1:
+            all_location = sorted(temp_df["location"].unique())
+            selected_location = st.selectbox("Location", all_location)
+            temp_df = temp_df[temp_df["location"]== selected_location]
+            
+        with col2:
+            all_price_point = sorted(temp_df["price_point"].unique())
+            selected_price_point = st.selectbox("Price Point", all_price_point)
+            temp_df = temp_df[temp_df["price_point"]== selected_price_point]
+            # st.write(temp_df)
+
+        with col3:
+            all_groups = sorted(temp_df["group_name"].unique())
+            selected_group = st.selectbox("Group Name", all_groups)
+
+
+        with col1:
+            show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
+        with col2:
+            
+            if (st.session_state["is_logged_in"]): #"is_logged_in" in st.session_state:
+                show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+            else:
+                show_unpublished = False
+        
+        with col3:
+            submit_price = st.button("Get Prices",type="primary",width="stretch")
+
+    if submit_price:
+        
+        with st.container(border=False):
+            selected_group_df = group_df[group_df["group_name"]== selected_group].reset_index(drop=True)
+            selected_group_df["Price Circular Date"]= selected_group_df["Freight Circular Date"]= ""
+            st.session_state.selected_group_df = selected_group_df
+            get_discounts(selected_group_df, selected_family, selected_qty, price_date, show_published, show_unpublished)
+            pricing_editor_fragment()
+            
+
+## NEW GROUP CREATE
+@st.fragment
+def render_create_group():
+    # 1. Base Selectors
+    with st.container():
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            group_type = st.radio("Choose Group", ["Product Group", "Location Group"], horizontal=True)
+        with col2:
+            st.info("Please refer Price and Freight Circulars for creating groups.",icon=":material/info:",)
+
+    # --- BLOCK A: PRODUCT GROUP WORKING WORKSPACE ---
+    if group_type == "Product Group":
+        # Initialize internal session dataframe if missing
+        if "new_product_df" not in st.session_state:
+            st.session_state["new_product_df"] = pd.DataFrame(
+                columns=[ "company", "grade"])
+
+        with st.container(border=True):
+            col1, col2, col3 = st.columns(3, vertical_alignment="bottom")
+            with col1:
+                selected_family = st.selectbox("Family", FAMILY, key="family")
+            with col2:
+                df_source = st.session_state.productgroup_df
+                unique_category = df_source[df_source["family"] == selected_family]["category"].unique()
+                selected_category = st.selectbox("Category", unique_category, key="category")
+            with col3:
+                if st.button("Clear Data", type="secondary", use_container_width=True):
+                    st.session_state["new_product_df"] = pd.DataFrame(
+                        columns=["company", "grade"])
+                    st.rerun(scope="fragment")
+
+        with st.container(border=True):
+            st.markdown("#### 📦 Enter Product Rows")
+            # Render the data editor grid
+            edited_prod = st.data_editor(
+                st.session_state["new_product_df"],
+                column_config={
+                    "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+                    "grade": st.column_config.TextColumn("Grade Code", required=True),
+                },
+                num_rows="dynamic",
+                # hide_index=True,
+                use_container_width=True,
+                key="prod_editor_grid",
+            )
+            
+            st.session_state["new_product_df"] = edited_prod
+        
+
+    # --- BLOCK B: LOCATION GROUP WORKING WORKSPACE ---
+    elif group_type == "Location Group":
+        if "new_location_df" not in st.session_state:
+            st.session_state["new_location_df"] = pd.DataFrame(
+                columns=[ "company", "location", "delivery_location"])
+
+        with st.container(border=True):
+            col1, col2, col3 = st.columns(3, vertical_alignment="bottom")
+            with col1:
+                df_source = st.session_state.locationgroup_df
+                unique_pricepoint = df_source["price_point"].unique()
+                selected_pricepoint = st.selectbox("Price Point", unique_pricepoint, key="pricepoint")
+            with col3:
+                if st.button("Clear Data", type="secondary", use_container_width=True):
+                    st.session_state["new_location_df"] = pd.DataFrame(
+                        columns=[ "company", "location", "delivery_location"])
+                    st.rerun(scope="fragment")
+
+        with st.container(border=True):
+            st.markdown("#### 📍 Enter Location Rows")
+            
+            # Determine if delivery location should be open or closed based on your rules
+            is_plant = (selected_pricepoint == "Plant")
+            
+            edited_loc = st.data_editor(
+                st.session_state["new_location_df"],
+                column_config={
+                    # "price_point": st.column_config.TextColumn("Price Point", disabled=True),
+                    "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+                    "location": st.column_config.TextColumn("Location"),
+                    "delivery_location": st.column_config.TextColumn(
+                        "Delivery Location", 
+                        disabled=not is_plant,  # Lock if price_point isn't Plant
+                        # placeholder="N/A (Plant only)" if not is_plant else "Enter delivery track..."
+                    ),
+                },
+                num_rows="dynamic",
+                hide_index=True,
+                use_container_width=True,
+                key="loc_editor_grid",
+            )
+            st.session_state["new_location_df"] = edited_loc
+            
+
+    with st.container():    
+        SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+        col1, col2 = st.columns(2, vertical_alignment="bottom")
+        with col1:
+            group_name = st.text_input("Group Name",key="group_name")
+            
+        with col2:
+            save_clicked = st.button("💾 Save Group", width="stretch", type="primary")
+        
+        if save_clicked:       
+            if group_type == "Product Group":
+                new_group_df = pd.DataFrame(st.session_state["new_product_df"])
+                new_group_df["productgroupname"] = group_name
+                new_group_df["family"] = selected_family
+                new_group_df["category"] = selected_category
+                new_order = ['productgroupname', 'family', 'category','company','grade']
+                new_group_df = new_group_df[new_order]
+                read_data.append_data(SPREADSHEET_URL,"ProductGroup",df=new_group_df)
+                st.success("Group saved successfully")  
+
+            elif group_type == "Location Group":
+                new_group_df = pd.DataFrame(st.session_state["new_location_df"])
+                new_group_df["locationgroupname"] = group_name
+                new_group_df["price_point"] = selected_pricepoint
+                new_order = ['locationgroupname', 'price_point', 'company','location','delivery_location']
+                new_group_df = new_group_df[new_order]
+                read_data.append_data(SPREADSHEET_URL,"LocationGroup",df=new_group_df)
+                st.success("Group saved successfully")
+
+@st.fragment
+def render_modify_group():
+    if "group_is_fetched" not in st.session_state:
+        st.session_state["group_is_fetched"] = False
+    with st.container():
+        col1, col2 = st.columns([1,2])
+        with col1:
+            group = st.radio("Choose Group",["Product Group","Location Group"], horizontal=True,
+                             key="group_modify",on_change=lambda: st.session_state.update(
+                    {"group_is_fetched": False}))
+        with col2:
+            st.info("Please refer Price and Freight Circulars for modifying groups.", icon=":material/info:")
+        if group == "Product Group":
+            if "productgrp_rows" not in st.session_state or not st.session_state["productgrp_rows"]:
+                st.session_state["productgrp_rows"] = []
+                # add_group_row(group=group)
+            with st.container(border=True):
+                col1, col2, col3, col4 = st.columns([1,1,2,2], vertical_alignment="bottom")
+                with col1:
+                    selected_family = st.selectbox("Family",FAMILY,key="family_modify")
+                with col2:
+                    df = st.session_state.productgroup_df
+                    df = df[df["family"] == selected_family]
+                    unique_category = df["category"].unique()
+                    selected_category = st.selectbox("Category",unique_category,key="category_modify")
+                with col3:
+                    df = df[df["category"] == selected_category]
+                    unique_groups = df["productgroupname"].unique()
+                    selected_group = st.selectbox("Category",unique_groups,key="groups_modify")
+                    df = df[df["productgroupname"]==selected_group]
+                with col4:
+                    if st.button("Fetch Group", use_container_width=True, type="primary"):
+                        st.session_state["new_product_df"] = df[["company","grade"]].copy()
+                        st.session_state["group_is_fetched"] = True
+                if st.session_state["group_is_fetched"]:
+                    # if ["new_product_df"] not in st.session_state:
+                    #     st.session_state["new_product_df"] = df[["company","grade"]]
+                    with st.container(border=True):
+                        st.markdown("#### 📦 Enter Product Rows")
+                        # Render the data editor grid
+                        edited_prod = st.data_editor(
+                            st.session_state["new_product_df"],
+                            column_config={
+                                "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+                                "grade": st.column_config.TextColumn("Grade Code", required=True),
+                            },
+                            num_rows="dynamic",
+                            # hide_index=True,
+                            use_container_width=True,
+                            key="prod_editor_grid_modify",
+                        )
+                        
+                        st.session_state["new_product_df"] = edited_prod
+                        
+                    
+                    # st.session_state.edit_rows = df
+                    # render_group_modifier(df)
+            
+        elif group == "Location Group":
+            with st.container(border=True):
+                col1, col2, col3, col4 = st.columns([1,1,2,2], vertical_alignment="bottom")
+                with col1:
+                    df = st.session_state.locationgroup_df
+                    unique_pricepoint = df["price_point"].unique()
+                    selected_pricepoint = st.selectbox("Price Point",unique_pricepoint,key="pricepoint_modify")
+                with col2:
+                    df = df[df["price_point"] == selected_pricepoint]
+                    unique_location = df["location"].unique()
+                    selected_location = st.selectbox("Location",unique_location,key="location_modify")
+                with col3:
+                    df = df[df["location"] == selected_location]
+                    unique_groups = df["locationgroupname"].unique()
+                    selected_group = st.selectbox("Group",unique_groups,key="locgroups_modify")
+                    df = df[df["locationgroupname"]==selected_group]
+                with col4:
+                    if st.button("Fetch Group", use_container_width=True, type="primary"):
+                        st.session_state["new_location_df"] = df[["company","location","delivery_location"]].copy()
+                        st.session_state["group_is_fetched"] = True
+                    
+                if st.session_state["group_is_fetched"]:
+                    with st.container(border=True):
+                        st.markdown("#### 📍 Enter Location Rows")
+                        
+                        # Determine if delivery location should be open or closed based on your rules
+                        is_plant = (selected_pricepoint == "Plant")
+                        
+                        edited_loc = st.data_editor(
+                            st.session_state["new_location_df"],
+                            column_config={
+                                # "price_point": st.column_config.TextColumn("Price Point", disabled=True),
+                                "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+                                "location": st.column_config.TextColumn("Location"),
+                                "delivery_location": st.column_config.TextColumn(
+                                    "Delivery Location", 
+                                    disabled=not is_plant,  # Lock if price_point isn't Plant
+                                    # placeholder="N/A (Plant only)" if not is_plant else "Enter delivery track..."
+                                ),
+                            },
+                            num_rows="dynamic",
+                            # hide_index=True,
+                            use_container_width=True,
+                            key="loc_editor_grid",
+                        )
+                        st.session_state["new_location_df"] = edited_loc
+                        st.session_state["group_is_fetched"] = True
+                    
+                    # render_group_modifier(df)
+
+        if st.session_state["group_is_fetched"]:
+            save_clicked = st.button("💾 Save Group", width="stretch", type="primary", key="modify_save")
+            SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+            if save_clicked:       
+                if group == "Product Group":
+                    # if st.session_state["new_product_df"] is not None:
+                        new_group_df = pd.DataFrame(st.session_state["new_product_df"])
+                        new_group_df["productgroupname"] = selected_group
+                        new_group_df["family"] = selected_family
+                        new_group_df["category"] = selected_category
+                        new_order = ['productgroupname', 'family', 'category','company','grade']
+                        new_group_df = new_group_df[new_order]
+                        read_data.overwrite_user_data(SPREADSHEET_URL,"ProductGroup",
+                                                      filter_column="productgroupname",filter_value=selected_group,
+                                                      df=new_group_df)
+                        st.success("Group saved successfully")  
+
+                elif group == "Location Group":
+                    # if st.session_state["new_location_df"] is not None:
+                        new_group_df = pd.DataFrame(st.session_state["new_location_df"])
+                        new_group_df["locationgroupname"] = selected_group
+                        new_group_df["price_point"] = selected_pricepoint
+                        new_order = ['locationgroupname', 'price_point', 'company','location','delivery_location']
+                        new_group_df = new_group_df[new_order]
+                        read_data.overwrite_user_data(SPREADSHEET_URL,"LocationGroup", filter_column="locationgroupname",
+                                                      filter_value=selected_group,df=new_group_df)
+                        st.success("Group saved successfully")
+
+def render_delete_group():
+    SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+    with st.container():
+        col1, col2 = st.columns([1,2])
+        with col1:
+            group = st.radio("Choose Group",["Product Group","Location Group"], horizontal=True,key="group_delete")
+        with col2:
+            st.info("Groups once deleted cannot be restored.", icon=":material/info:")
+        if group == "Product Group":
+            # if "productgrp_rows" not in st.session_state or not st.session_state["productgrp_rows"]:
+            #     st.session_state["productgrp_rows"] = []
+                # add_group_row(group=group)
+            with st.container(border=True):
+                col1, col2, col3, col4 = st.columns([1,1,2,2], vertical_alignment="bottom")
+                with col1:
+                    selected_family = st.selectbox("Family",FAMILY,key="family_delete")
+                with col2:
+                    df = st.session_state.productgroup_df
+                    df = df[df["family"] == selected_family]
+                    unique_category = df["category"].unique()
+                    selected_category = st.selectbox("Category",unique_category,key="category_delete")
+                with col3:
+                    df = df[df["category"] == selected_category]
+                    unique_groups = df["productgroupname"].unique()
+                    selected_group = st.selectbox("Category",unique_groups,key="groups_delete")
+                    df = df[df["productgroupname"]==selected_group]
+                with col4:
+                    submit_button = st.button("Delete Group",width="stretch",type="primary")
+                if submit_button:
+                    read_data.delete_rows(SPREADSHEET_URL,"ProductGroup","productgroupname",selected_group)
+                    st.success("Group deleted successfully")
+                    st.session_state.group_df, st.session_state.productgroup_df, st.session_state.locationgroup_df = read_data.read_groups_data()
+        
+        elif group == "Location Group":
+            with st.container(border=True):
+                col1, col2, col3, col4 = st.columns([1,1,2,2], vertical_alignment="bottom")
+                with col1:
+                    df = st.session_state.locationgroup_df
+                    unique_pricepoint = df["price_point"].unique()
+                    selected_pricepoint = st.selectbox("Price Point",unique_pricepoint,key="pricepoint_delete")
+                with col2:
+                    df = df[df["price_point"] == selected_pricepoint]
+                    unique_location = df["location"].unique()
+                    selected_location = st.selectbox("Location",unique_location,key="location_delete")
+                with col3:
+                    df = df[df["location"] == selected_location]
+                    unique_groups = df["locationgroupname"].unique()
+                    selected_group = st.selectbox("Group",unique_groups,key="locgroups_delete")
+                    df = df[df["locationgroupname"]==selected_group]
+                with col4:
+                    submit_button = st.button("Delete Group",width="stretch",type="primary")
+                if submit_button:
+                    read_data.delete_rows(SPREADSHEET_URL,"LocationGroup","locationgroupname",selected_group)
+                    st.success("Group deleted successfully")
+                    st.session_state.group_df, st.session_state.productgroup_df, st.session_state.locationgroup_df = read_data.read_groups_data()
+
+@st.fragment
+def render_group_modifier1(group_df):
+    st.markdown("### 📝 Editor")
+    st.caption(
+        "💡 *Double-click to edit. Use the bottom row to add entries. Select a row and hit 'Delete' on your keyboard to remove rows. Changes stay inside this block until saved.*"
+    )
+
+    # Load from session state so we don't reset changes on internal fragment reruns
+    # if "working_product_df" not in st.session_state:
+    st.session_state["working_product_df"] = group_df.copy()
+    column_config={
+            "company": st.column_config.SelectboxColumn(
+                "Company", options=COMPANIES, required=True
+            ),
+            # "productgroupname": st.column_config.TextColumn("Product Group",disabled=True),
+            # "family": st.column_config.TextColumn("Family",disabled=True),
+            # "category": st.column_config.TextColumn("Category",disabled=True),
+            "grade": st.column_config.TextColumn("Grade Code"),
+        }
+    
+    # The Data Editor sandbox
+    edited_df = st.data_editor(
+        st.session_state["working_product_df"],
+        column_config=column_config,
+        num_rows="dynamic",  # Allows row insertion and deletion natively
+        width="stretch",
+        key="group_matrix_editor",
+    )
+
+    # Keep session state synced with what the user is typing
+    st.session_state["working_product_df"] = edited_df
+
+    # Add a save button inside the fragment to push updates globally
+    if st.button("💾 Finalize & Save Changes", type="primary"):
+        # read_data.overwrite_user_data(spreadsheet_url,sheet_name,filter_column,filter_value,df)
+        st.success("Configuration updated successfully!")
+
+# --- 1. THE ISOLATED MODIFIER FRAGMENT ---
+@st.fragment
+def render_group_modifier_grid(group_type, selected_group_name):
+    st.markdown(f"### 📝 Live Matrix Editor for: `{selected_group_name}`")
+    st.caption("💡 *Changes remain isolated in this workspace until finalized and saved.*")
+
+    # Construct the appropriate key dynamically based on the group type
+    state_key = "working_prod_df" if group_type == "Product Group" else "working_loc_df"
+    
+    # Define column configurations and explicit sequences
+    if group_type == "Product Group":
+        col_config = {
+            "productgroupname": st.column_config.TextColumn("Group Name", disabled=True),
+            "family": st.column_config.TextColumn("Family", disabled=True),
+            "category": st.column_config.TextColumn("Category", disabled=True),
+            "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+            "grade": st.column_config.TextColumn("Grade Code"),
+        }
+        # col_order = ["productgroupname", "family", "category", "company", "grade"]
+    else:
+        is_plant = st.session_state.get("pricepoint_modify") == "Plant"
+        col_config = {
+            "locationgroupname": st.column_config.TextColumn("Group Name", disabled=True),
+            "price_point": st.column_config.TextColumn("Price Point", disabled=True),
+            "company": st.column_config.SelectboxColumn("Company", options=COMPANIES, required=True),
+            "location": st.column_config.TextColumn("Location", disabled=True),
+            "delivery_location": st.column_config.TextColumn(
+                "Delivery Location", 
+                disabled=not is_plant,
+                # placeholder="N/A (Plant only)" if not is_plant else "Enter delivery track..."
+            ),
+        }
+        # col_order = ["locationgroupname", "price_point", "company", "location", "delivery_location"]
+
+    # Render the sandboxed grid editor
+    edited_df = st.data_editor(
+        st.session_state[state_key],
+        column_config=col_config,
+        # column_order=col_order,
+        hide_index=True,
+        num_rows="dynamic",
+        use_container_width=True,
+        key=f"editor_{state_key}"
+    )
+
+    # Automatically fill down the group names and contextual tags for new rows
+    if not edited_df.empty:
+        if group_type == "Product Group":
+            edited_df["productgroupname"] = selected_group_name
+            edited_df["family"] = st.session_state.get("family_modify")
+            edited_df["category"] = st.session_state.get("category_modify")
+        else:
+            edited_df["locationgroupname"] = selected_group_name
+            edited_df["price_point"] = st.session_state.get("pricepoint_modify")
+            edited_df["location"] = st.session_state.get("location_modify")
+            if not is_plant:
+                edited_df["delivery_location"] = ""
+
+    # Cache back changes to working session context memory
+    st.session_state[state_key] = edited_df
+
+    # Overwrite & Commit logic block using your custom utility function
+    if st.button("💾 Finalize & Overwrite Google Sheet", type="primary"):
+        SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+        with st.spinner("Processing cloud sync changes..."):
+            try:
+                if group_type == "Product Group":
+                    # Clean up empty rows from grid draft
+                    valid_df = edited_df.dropna(subset=["company", "grade"])
+                    
+                    # Call your core overwrite function
+                    read_data.overwrite_user_data(
+                        spreadsheet_url=SPREADSHEET_URL,  # Ensure this URL variable is available in scope
+                        sheet_name="Product Group",        # Change to your actual worksheet tab name
+                        filter_column="productgroupname",
+                        filter_value=selected_group_name,
+                        df=valid_df
+                    )
+                    
+                    # Update internal master state copy if needed
+                    st.success(f"Successfully overwrote group `{selected_group_name}` adjustments!")
+                
+                else:
+                    valid_df = edited_df.dropna(subset=["company"])
+                    
+                    read_data.overwrite_user_data(
+                        spreadsheet_url=SPREADSHEET_URL,
+                        sheet_name="Location Group",       # Change to your actual worksheet tab name
+                        filter_column="locationgroupname",
+                        filter_value=selected_group_name,
+                        df=valid_df
+                    )
+                    
+                    st.success(f"Successfully overwrote group `{selected_group_name}` adjustments!")
+                    
+            except Exception as e:
+                st.error(f"Commit operation failed: {e}")
+# def save_group_new2(group,pricepoint=""):      
+#         if group == "Product Group":
+#             new_group_df = pd.DataFrame(st.session_state["new_product_df"])
+#             new_group_df["productgroupname"] = group_name
+#             read_data.append_data(SPREADSHEET_URL,"ProductGroup",df=new_group_df)
+#             st.success("Group saved successfully")
+#         elif group == "Location Group":
+#             new_group_df = pd.DataFrame(st.session_state["new_location_df"])
+#             new_group_df["locationgroupname"] = group_name
+#             new_group_df["price_point"] = pricepoint
+#             read_data.append_data(SPREADSHEET_URL,"LocationGroup",df=new_group_df)
+#             st.success("Group saved successfully")
+
+def save_group_new(group):
+    SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+    col1, col2 = st.columns(2, vertical_alignment="bottom")
+    with col1:
+        group_name = st.text_input("Group Name",key="group_name")
+    with col2:
+        save_clicked = st.button("💾 Save Group", width="stretch", type="primary")
+    
+    if save_clicked:
+        spreadsheet,sheet_names = read_data.get_sheet_names(SPREADSHEET_URL)
+        if group == "Product Group":
+            new_group_df = pd.DataFrame(st.session_state["productgrp_rows"])
+            # read_data.append_data(SPREADSHEET_URL,"ProductGroup",df=new_group_df)
+            worksheet = spreadsheet.worksheet("ProductGroup")
+            rows_to_save = []
+
+            for row in st.session_state["productgrp_rows"]:
+                rows_to_save.append([
+                    group_name, row["family"], row["category"], row["company"], row["grade"],])
+
+            worksheet.append_rows(rows_to_save)
+            read_data.read_groups_data.clear()
+            st.success("Group saved successfully")
+        
+        elif group == "Location Group":
+            worksheet = spreadsheet.worksheet("LocationGroup")
+            rows_to_save = []
+
+            for row in st.session_state["locationgrp_rows"]:
+                rows_to_save.append([
+                    group_name, row["price_point"], row["company"], row["location"],row["delivery_location"]])
+
+            worksheet.append_rows(rows_to_save)
+            read_data.read_groups_data.clear()
+            st.success("Group saved successfully")
+
+def clear_pricing_data_new():
+    st.session_state.pricing_df = []
+    st.session_state.rows = []
+    st.session_state.selected_group_df = []
+    st.session_state["productgrp_rows"] = []
+    st.session_state["locationgrp_rows"] = []
+
+@st.fragment
+def render_find_group_price():
+    with st.container(border=True):
+        # Product Group
+        with st.container():
+            col1, col2, col3, col4 = st.columns(4,vertical_alignment="top")
+            productgroups = st.session_state.productgroup_df
+            locationgroups = st.session_state.locationgroup_df
+            with col1:
+                price_date = st.date_input( "Price Date", format="DD/MM/YYYY")
+            with col2:
+                selected_family = st.selectbox("Family", FAMILY)
+                productgroups = productgroups[productgroups["family"] == selected_family]
+
+            with col3:
+                unique_category = sorted(productgroups["category"].unique())
+                selected_category = st.selectbox("Category", unique_category)
+                productgroups = productgroups[productgroups["category"]== selected_category]
+
+            with col4:
+                unique_productgroups = sorted(productgroups["productgroupname"].unique())
+                selected_productgroup = st.selectbox("Product Group", unique_productgroups)
+                productgroups = productgroups[productgroups["productgroupname"]== selected_productgroup]
+
+        # Location Group
+        with st.container():
+            col1, col2, col3, col4 = st.columns([1,1,1,1])
+            with col1:
+                unique_pricepoint = sorted(locationgroups["price_point"].unique())
+                selected_pricepoint = st.selectbox("Price Point", unique_pricepoint)
+                locationgroups = locationgroups[locationgroups["price_point"]== selected_pricepoint]
+                
+            with col2:
+                unique_location = sorted(locationgroups["location"].unique())
+                selected_location = st.selectbox("Location", unique_location)
+                locationgroups = locationgroups[locationgroups["location"]== selected_location]
+                # st.write(temp_df)
+
+            with col3:
+                unique_locationgroups = sorted(locationgroups["locationgroupname"].unique())
+                selected_locationgroup = st.selectbox("Location Group", unique_locationgroups)
+                locationgroups = locationgroups[locationgroups["locationgroupname"]== selected_locationgroup]
+
+            with col4:
+                selected_qty = st.number_input("Quantity",min_value=0,max_value=9999)
+        
+        # Buttons
+        with st.container():
+            col1, col2, col3 = st.columns([1,1,2])
+            with col1:
+                show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
+            with col2:
+                
+                if (st.session_state["is_logged_in"]): #"is_logged_in" in st.session_state:
+                    show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
+                else:
+                    show_unpublished = False
+            
+            with col3:
+                submit_price = st.button("Get Prices",type="primary",width="stretch")
+
+        if submit_price:
+            # Perform an inner merge on the 'company' column
+            selected_group_df = pd.merge(productgroups,
+                locationgroups[['company', 'price_point', 'location', 'delivery_location']],
+                on='company',how='inner')
+            selected_group_df["Price Circular Date"]= selected_group_df["Freight Circular Date"]= ""
+            st.session_state.selected_group_df = selected_group_df
+            get_discounts(selected_group_df, selected_family, selected_qty, price_date, show_published, show_unpublished)
+            pricing_editor_fragment()
 # DISCOUNT
 def get_discount_dataframe(selected_family, show_published, show_unpublished):
     spreadsheet_url = st.secrets["pricing"]["PUBLISHED_DISCOUNT_MASTER_SHEET"]
@@ -829,66 +1468,4 @@ def pricing_editor_fragment():
         if is_view_group: 
             st.dataframe(st.session_state.selected_group_df,width="stretch",hide_index=True)
         
-# Discount Screen
-@st.fragment
-def render_interactive_pricing_zone(group_df):
-    with st.container(border=True):
-
-        col1, col2, col3, col4 = st.columns(4,vertical_alignment="top")
-        temp_df = group_df
-
-        with col1:
-            price_date = st.date_input( "Price Date", format="DD/MM/YYYY")
-        
-        with col2:
-            all_family = sorted(temp_df["family"].unique())
-            selected_family = st.selectbox("Family", all_family)
-            temp_df = temp_df[temp_df["family"]== selected_family]
-
-        with col3:
-            all_category = sorted(temp_df["category"].unique())
-            selected_category = st.selectbox("category", all_category)
-            temp_df = temp_df[temp_df["category"]== selected_category]
-
-        with col4:
-            selected_qty = st.number_input("Quantity",min_value=0,max_value=9999)
-        
-        col1, col2, col3 = st.columns([1,1,2])
-        with col1:
-            all_location = sorted(temp_df["location"].unique())
-            selected_location = st.selectbox("Location", all_location)
-            temp_df = temp_df[temp_df["location"]== selected_location]
-            
-        with col2:
-            all_price_point = sorted(temp_df["price_point"].unique())
-            selected_price_point = st.selectbox("Price Point", all_price_point)
-            temp_df = temp_df[temp_df["price_point"]== selected_price_point]
-            # st.write(temp_df)
-
-        with col3:
-            all_groups = sorted(temp_df["group_name"].unique())
-            selected_group = st.selectbox("Group Name", all_groups)
-
-
-        with col1:
-            show_published = st.toggle("Published Discounts", value=True, key="frag_show_pub")
-        with col2:
-            
-            if (st.session_state["is_logged_in"]): #"is_logged_in" in st.session_state:
-                show_unpublished = st.toggle("UnPublished Discounts", key="frag_show_unpub")
-            else:
-                show_unpublished = False
-        
-        with col3:
-            submit_price = st.button("Get Prices",type="primary",width="stretch")
-
-    if submit_price:
-        
-        with st.container(border=False):
-            selected_group_df = group_df[group_df["group_name"]== selected_group].reset_index(drop=True)
-            selected_group_df["Price Circular Date"]= selected_group_df["Freight Circular Date"]= ""
-            st.session_state.selected_group_df = selected_group_df
-            get_discounts(selected_group_df, selected_family, selected_qty, price_date, show_published, show_unpublished)
-            pricing_editor_fragment()
-            
 

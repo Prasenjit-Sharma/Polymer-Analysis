@@ -205,17 +205,49 @@ class read_data():
         return read_data.read_freight_data(freight_sheet_name,price_date)
      
     @st.cache_data(ttl=300)
-    def read_groups_data(spreadsheet_url):
-
-        spreadsheet, sheet_names = read_data.get_sheet_names(
-            spreadsheet_url
-        )
-
+    def read_groups_data():
+        spreadsheet_url = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
+        spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
         worksheet = spreadsheet.worksheet("Groups")
+        groups = pd.DataFrame(worksheet.get_all_records())
+        worksheet_productgroup =  spreadsheet.worksheet("ProductGroup")
+        productgroups = pd.DataFrame(worksheet_productgroup.get_all_records())
+        worksheet_locationgroup = spreadsheet.worksheet("LocationGroup")
+        locationgroups = pd.DataFrame(worksheet_locationgroup.get_all_records())
+        
+        return groups, productgroups, locationgroups
 
-        return pd.DataFrame(
-            worksheet.get_all_records()
-        )
+    
+    @staticmethod
+    def append_data(spreadsheet_url, sheet_name, df):
+        spreadsheet,sheet_names = read_data.get_sheet_names(spreadsheet_url)
+        worksheet = spreadsheet.worksheet(sheet_name)
+        rows = df.astype(str).values.tolist()
+        worksheet.append_rows(rows, value_input_option="USER_ENTERED")
+
+    @staticmethod
+    def delete_rows(spreadsheet_url,sheet_name,filter_column,filter_value):
+        spreadsheet,sheet_names = read_data.get_sheet_names(spreadsheet_url)
+        worksheet = spreadsheet.worksheet(sheet_name)
+        data = worksheet.get_all_records()
+        if not data:
+            return
+
+        df = pd.DataFrame(data)
+
+        rows_to_delete = df[df[filter_column].astype(str)== str(filter_value)].index.tolist()
+
+        # Google Sheets rows start at 2 because row 1 contains headers
+
+        for row_num in sorted(rows_to_delete,reverse=True):
+            worksheet.delete_rows(row_num + 2)
+
+    @staticmethod
+    def overwrite_user_data(spreadsheet_url,sheet_name,filter_column,filter_value,df):
+        # Delete Existing User Data
+        read_data.delete_rows(spreadsheet_url,sheet_name,filter_column,filter_value)
+        # Add New User Data
+        read_data.append_data(spreadsheet_url,sheet_name,df)
 
     @st.cache_data(ttl=3600)
     def read_discount_data(spreadsheet_url,family):

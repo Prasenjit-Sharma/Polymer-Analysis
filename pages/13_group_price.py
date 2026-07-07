@@ -39,7 +39,7 @@ with tab_price:
         if st.button(":material/change_circle: Refresh Groups"):
             read_data.read_groups_data.clear()
             st.rerun()
-    group_df = read_data.read_groups_data(SPREADSHEET_URL)
+    group_df, productgroup_df, locationgroup_df = read_data.read_groups_data()
     
 
     if group_df.empty:
