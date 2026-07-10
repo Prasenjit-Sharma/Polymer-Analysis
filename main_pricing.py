@@ -4,6 +4,11 @@ from reading_gsheet_data import read_data
 from discount_calc import discount
 import utilities
 
+# TO DO
+# 1. Groups fetch group price - 
+# its limited to 1 entry for each company. like metallocene need to compare multiple grade
+# 2. View Groups OPtion
+
 utilities.apply_common_styles("")
 
 # In initial logged_in is False

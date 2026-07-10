@@ -210,7 +210,18 @@ class read_data():
         worksheet = spreadsheet.worksheet("Groups")
         groups = pd.DataFrame(worksheet.get_all_records())
         worksheet_productgroup =  spreadsheet.worksheet("ProductGroup")
-        productgroups = pd.DataFrame(worksheet_productgroup.get_all_records())
+        # productgroups = pd.DataFrame(worksheet_productgroup.get_all_records())
+        # Change
+        raw_data = worksheet_productgroup.get_all_values()
+        # 2. Extract the first row as headers, and the rest as data rows
+        headers = raw_data[0]
+        rows = raw_data[1:]
+        
+        # 3. Create the DataFrame and immediately force the 'grade' column to text
+        productgroups = pd.DataFrame(rows, columns=headers)
+        
+        # Ensure the whole dataframe (or just specific columns) stays as string
+        productgroups["grade"] = productgroups["grade"].astype(str)
         worksheet_locationgroup = spreadsheet.worksheet("LocationGroup")
         locationgroups = pd.DataFrame(worksheet_locationgroup.get_all_records())
         

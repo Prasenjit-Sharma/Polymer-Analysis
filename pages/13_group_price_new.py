@@ -21,8 +21,8 @@ if "is_logged_in" not in st.session_state:
 
 
 # UI
-tab_price, tab_create,  tab_delete = st.tabs([":material/search_activity: Find Price",
-            ":material/add_box: Create Group",":material/delete: Delete Group"])
+tab_price, tab_view, tab_create,  tab_delete = st.tabs([":material/search_activity: Find Price",
+            ":material/search_activity: View Group", ":material/add_box: Create Group",":material/delete: Delete Group"])
 
 with tab_price:
     utilities.render_find_group_price()
@@ -30,8 +30,8 @@ with tab_price:
 with tab_create:
     utilities.render_create_group()
 
-# with tab_modify:
-#     utilities.render_modify_group()
+with tab_view:
+    utilities.render_view_group()
 
 with tab_delete:
     utilities.render_delete_group()

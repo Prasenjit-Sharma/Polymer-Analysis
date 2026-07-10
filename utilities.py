@@ -496,7 +496,7 @@ PRICE_POINT_MAP = {
     "HPCL": ["Depot"],
     "HPL": ["Depot", "Plant"],
 }
-SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL", "NAYARA","MRPL"]
+SPECIAL_FREIGHT_COMPANIES = ["HMEL", "OPAL", "HPL", "NAYARA","MRPL","GAIL"]
 
 def get_price(df, grade_input, location_input):
 
@@ -575,6 +575,9 @@ def clear_pricing_data():
     st.session_state.pricing_df = []
     st.session_state.rows = []
     st.session_state.selected_group_df = []
+
+def refresh_group():
+    st.session_state.group_df, st.session_state.productgroup_df, st.session_state.locationgroup_df = read_data.read_groups_data()
 
 @st.fragment
 def new_render_create_group():
@@ -717,7 +720,7 @@ def render_interactive_pricing_zone(group_df):
 def render_find_group_price():
     with st.container(border=True):
         if st.button(":material/change_circle: Refresh Groups", key="refresh_find"):
-            read_data.read_groups_data()
+            refresh_group()
         # Product Group
         with st.container():
             col1, col2, col3, col4 = st.columns(4,vertical_alignment="top")
@@ -995,6 +998,58 @@ def update_df(session_dataframe_key,session_edit_key):
     # Save the synchronized dataframe back into your state
     st.session_state[session_dataframe_key] = base_df
 
+def render_view_group():
+    group_type = st.radio("Choose Group", ["Product Group", "Location Group"], horizontal=True, key="view_grp")
+    
+    productgroups = st.session_state.productgroup_df
+    locationgroups = st.session_state.locationgroup_df
+
+    if group_type == "Product Group":
+        with st.container(border=True):
+            col1, col2, col3, col4 = st.columns(4,vertical_alignment="bottom")    
+            with col1:
+                selected_family = st.selectbox("Family", FAMILY, key="view_grp_fam")
+                productgroups = productgroups[productgroups["family"] == selected_family]
+
+            with col2:
+                unique_category = sorted(productgroups["category"].unique())
+                selected_category = st.selectbox("Category", unique_category, key="view_grp_cat")
+                productgroups = productgroups[productgroups["category"]== selected_category]
+
+            with col3:
+                unique_productgroups = sorted(productgroups["productgroupname"].unique())
+                selected_productgroup = st.selectbox("Product Group", unique_productgroups, key="view_grp_grp")
+                productgroups = productgroups[productgroups["productgroupname"]== selected_productgroup]
+
+            with col4:
+                view_button = st.button("View Group", type="primary")
+            if view_button:
+                st.dataframe(productgroups, hide_index=True)
+        
+
+    if group_type == "Location Group":
+        with st.container(border=True):
+            col1, col2, col3, col4 = st.columns(4,vertical_alignment="bottom")
+            with col1:
+                unique_pricepoint = sorted(locationgroups["price_point"].unique())
+                selected_pricepoint = st.selectbox("Price Point", unique_pricepoint, key="view_loc_pp")
+                locationgroups = locationgroups[locationgroups["price_point"]== selected_pricepoint]
+                
+            with col2:
+                unique_location = sorted(locationgroups["location"].unique())
+                selected_location = st.selectbox("Location", unique_location, key="view_loc_loc")
+                locationgroups = locationgroups[locationgroups["location"]== selected_location]
+
+            with col3:
+                df = st.session_state.locationgroup_df
+                unique_locationgroups = sorted(locationgroups["locationgroupname"].unique())
+                selected_locationgroup = st.selectbox("Location Group", unique_locationgroups,key="view_loc_grp")
+                locationgroups = df[df["locationgroupname"]== selected_locationgroup]   
+
+            with col4:
+                view_button = st.button("View Group", type="primary")
+            if view_button:
+                st.dataframe(locationgroups, hide_index=True) 
 @st.fragment
 def render_delete_group():
     SPREADSHEET_URL = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
@@ -1006,7 +1061,7 @@ def render_delete_group():
             st.info("Groups once deleted cannot be restored.", icon=":material/info:")
         with col3:
             if st.button(":material/change_circle: Refresh Groups",key="refresh_delete"):
-                read_data.read_groups_data()
+                refresh_group()
 
         if group == "Product Group":
             with st.container(border=True):
