@@ -204,7 +204,6 @@ class read_data():
     def read_freight_data_cached(freight_sheet_name,price_date):
         return read_data.read_freight_data(freight_sheet_name,price_date)
      
-    @st.cache_data(ttl=300)
     def read_groups_data():
         spreadsheet_url = st.secrets["pricing"]["GROUP_MASTER_SHEET"]
         spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
@@ -217,6 +216,10 @@ class read_data():
         
         return groups, productgroups, locationgroups
 
+    @st.cache_data(ttl=300)
+    def read_groups_data_cached():
+        groups, productgroups, locationgroups = read_data.read_groups_data()
+        return groups, productgroups, locationgroups
     
     @staticmethod
     def append_data(spreadsheet_url, sheet_name, df):
