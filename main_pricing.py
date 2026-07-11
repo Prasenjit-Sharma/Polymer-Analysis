@@ -7,7 +7,6 @@ import utilities
 # TO DO
 # 1. Groups fetch group price - 
 # its limited to 1 entry for each company. like metallocene need to compare multiple grade
-# 2. View Groups OPtion
 
 utilities.apply_common_styles("")
 

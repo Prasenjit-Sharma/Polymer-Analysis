@@ -252,7 +252,7 @@ def df_actions(df, filename='data.xlsx', key='df_actions',index=False):
             data=download_excel(df=df, filename=filename, index=index),
             file_name=filename,
             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            use_container_width=True,
+            width="stretch",
             key=f'down_but_{key}'
         )
     
@@ -448,39 +448,42 @@ def get_market_metrics():
 def display_market_metrics():
     # Fetch metrics globally
     with st.container(border=True):
-        market_data = get_market_metrics()
+        try:
+            market_data = get_market_metrics()
 
-        if market_data:
-            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
-            
-            with m_col1:
-                st.metric(
-                    label="🇮🇳 Nifty 50 Index",
-                    value=f"{market_data['Nifty 50']['value']:,}",  # Formats number with commas
-                    delta=f"{market_data['Nifty 50']['change']} ({market_data['Nifty 50']['pct_change']}%)"
-                )
+            if market_data:
+                m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+                
+                with m_col1:
+                    st.metric(
+                        label="🇮🇳 Nifty 50 Index",
+                        value=f"{market_data['Nifty 50']['value']:,}",  # Formats number with commas
+                        delta=f"{market_data['Nifty 50']['change']} ({market_data['Nifty 50']['pct_change']}%)"
+                    )
 
-            with m_col2:
-                st.metric(
-                    label="💵 USD - INR Spot",
-                    value=f"₹{market_data['USD-INR']['value']}",
-                    delta=f"{market_data['USD-INR']['change']} ({market_data['USD-INR']['pct_change']}%)",
-                    delta_color="inverse"
-                )
-                
-            with m_col3:
-                st.metric(
-                    label="🛢️ Brent Crude",
-                    value=f"${market_data['Brent Crude']['value']}",
-                    delta=f"${market_data['Brent Crude']['change']} ({market_data['Brent Crude']['pct_change']}%)"
-                )
-                
-            with m_col4:
-                st.metric(
-                    label="🇺🇸 WTI Crude",
-                    value=f"${market_data['WTI Crude']['value']}",
-                    delta=f"${market_data['WTI Crude']['change']} ({market_data['WTI Crude']['pct_change']}%)"
-                )   
+                with m_col2:
+                    st.metric(
+                        label="💵 USD - INR Spot",
+                        value=f"₹{market_data['USD-INR']['value']}",
+                        delta=f"{market_data['USD-INR']['change']} ({market_data['USD-INR']['pct_change']}%)",
+                        delta_color="inverse"
+                    )
+                    
+                with m_col3:
+                    st.metric(
+                        label="🛢️ Brent Crude",
+                        value=f"${market_data['Brent Crude']['value']}",
+                        delta=f"${market_data['Brent Crude']['change']} ({market_data['Brent Crude']['pct_change']}%)"
+                    )
+                    
+                with m_col4:
+                    st.metric(
+                        label="🇺🇸 WTI Crude",
+                        value=f"${market_data['WTI Crude']['value']}",
+                        delta=f"${market_data['WTI Crude']['change']} ({market_data['WTI Crude']['pct_change']}%)"
+                    )   
+        except:
+            st.write("")
 # Producer Pricing
 COMPANIES = ["RIL","OPAL","HMEL","IOCL","GAIL","MRPL","NAYARA","HPCL","HPL"]
 FAMILY = ["PE", "PP"]
@@ -733,7 +736,7 @@ def render_find_group_price():
                 productgroups = productgroups[productgroups["family"] == selected_family]
 
             with col3:
-                unique_category = sorted(productgroups["category"].unique())
+                unique_category = (productgroups["category"].unique())
                 selected_category = st.selectbox("Category", unique_category)
                 productgroups = productgroups[productgroups["category"]== selected_category]
 
@@ -834,7 +837,9 @@ def pricing_editor_fragment():
                 st.info("Note - All fields in table above are editable. Please edit and press Recalculate for new Net Price.")
         col1, col2 = st.columns([2,1])
         with col1:
-            df_actions(st.session_state.pricing_df,index=True)
+            excel_df = st.session_state.pricing_df
+            excel_df.index.name = "Description"
+            df_actions(excel_df,filename='Polymer Pricing.xlsx', index=True)
         with col2:
             is_view_group = st.toggle("View Pricing Group")
                 
@@ -867,7 +872,7 @@ def render_create_group():
                 unique_category = df_source[df_source["family"] == selected_family]["category"].unique()
                 selected_category = st.selectbox("Category", unique_category, key="category",accept_new_options=True)
             with col3:
-                if st.button("Clear Data", type="secondary", use_container_width=True):
+                if st.button("Clear Data", type="secondary", width="stretch"):
                     st.session_state["new_product_df"] = pd.DataFrame(
                         columns=["company", "grade"])
                     st.rerun(scope="fragment")
@@ -898,7 +903,7 @@ def render_create_group():
                 unique_pricepoint = df_source["price_point"].unique()
                 selected_pricepoint = st.selectbox("Price Point", unique_pricepoint, key="pricepoint")
             with col3:
-                if st.button("Clear Data", type="secondary", use_container_width=True):
+                if st.button("Clear Data", type="secondary", width="stretch"):
                     st.session_state["new_location_df"] = pd.DataFrame(
                         columns=[ "company", "location", "delivery_location"])
                     st.rerun(scope="fragment")
@@ -960,7 +965,7 @@ def render_data_editor(session_dataframe_key,session_edit_key,column_config):
         column_config=updated_config,
         num_rows="dynamic",
         # hide_index=True,
-        use_container_width=True,
+        width="stretch",
         key=session_edit_key,
         on_change=update_df,
         args=(session_dataframe_key, session_edit_key)
@@ -1242,6 +1247,7 @@ def get_discounts(selected_group_df, selected_family, selected_qty, price_date,
     
     # st.write(pricing_df)
     # if "pricing_df" not in st.session_state:
+    pricing_df.index.name = "Description"
     st.session_state.pricing_df = pricing_df.copy()
 
    

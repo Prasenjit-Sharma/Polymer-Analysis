@@ -1,6 +1,7 @@
 import streamlit as st
 import utilities
 from reading_gsheet_data import read_data
+from datetime import date
 
 utilities.apply_common_styles("Pricing Circular")
 
@@ -36,15 +37,18 @@ if "filename" not in st.session_state:
 
 # 1. Main Search Filters Input Row
 with st.container(border=True):
+    # Calculate today and the start of the current month dynamically
+    today = date.today()
+    start_of_month = today.replace(day=1)
     col1, col2, col3, col4 = st.columns(4, vertical_alignment="bottom")
     with col1:
-        date_from = st.date_input("From Date", format="DD/MM/YYYY")
+        date_from = st.date_input("From Date", format="DD/MM/YYYY", value=start_of_month)
     with col2:
-        date_to = st.date_input("To Date", format="DD/MM/YYYY")
+        date_to = st.date_input("To Date", format="DD/MM/YYYY", value=today)
     with col3:
         company = st.selectbox("Company", utilities.COMPANIES)
     with col4:
-        if st.button("Fetch Circulars", type="primary", use_container_width=True):
+        if st.button("Fetch Circulars", type="primary", width="stretch"):
             st.session_state["show_circulars"] = True
             st.session_state["active_company"] = company
             # CRITICAL: Store filter boundaries to use during loop evaluation
@@ -105,7 +109,7 @@ if st.session_state["show_circulars"]:
                         button_key = f"btn_{file_name}_{name}_{idx}"
 
                         if st.button(
-                            name, key=button_key, use_container_width=True
+                            name, key=button_key, width="stretch"
                         ):
                             st.session_state["filename"] = file_name
                             st.session_state["selected_sheet"] = name
