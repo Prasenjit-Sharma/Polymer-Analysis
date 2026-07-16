@@ -1116,8 +1116,6 @@ def render_delete_group():
                     st.rerun(scope="fragment")
                     st.session_state.group_df, st.session_state.productgroup_df, st.session_state.locationgroup_df = read_data.read_groups_data()
 
-
-
 # DISCOUNT
 def get_discount_dataframe(selected_family, show_published, show_unpublished):
     spreadsheet_url = st.secrets["pricing"]["PUBLISHED_DISCOUNT_MASTER_SHEET"]
@@ -1250,5 +1248,121 @@ def get_discounts(selected_group_df, selected_family, selected_qty, price_date,
     pricing_df.index.name = "Description"
     st.session_state.pricing_df = pricing_df.copy()
 
-   
+# MARKET INTELLIGENCE
+METRIC_OPTIONS = ["PP Raffia-LLDPE Butene CFR SEA", "PP Raffia-HDPE Film CFR S Asia","PP Raffia-HDPE Film CFR SEA",
+                  "PP Raffia CFR S Asia vs SEA","HDPE Film CFR S Asia vs SEA",
+                  "PP Raffia SEA - Naptha FOB Gulf","LLDPE Butene SEA - Naptha FOB Gulf",
+                  "HDPE IM SEA - Naptha FOB Gulf", "HDPE Film SEA - Naptha FOB Gulf",
+                  "Custom Metrics"]
 
+def return_filtered_metric_df(df,date_from, date_to,chosen_metrics):
+
+    if chosen_metrics == "Custom Metrics":
+        chart_options = df.columns.drop("Date").tolist()
+        selected_metrics = st.multiselect("Select Custom Metrics",chart_options)
+    elif chosen_metrics == "PP Raffia-LLDPE Butene CFR SEA":
+        selected_metrics = ["PP Raffia CFR SE Asia Weekly","LLDPE Butene CFR SE Asia Weekly"]
+    elif chosen_metrics == "PP Raffia-HDPE Film CFR SEA":
+        selected_metrics = ["PP Raffia CFR SE Asia Weekly","HDPE Film CFR SE Asia Weekly"]
+    elif chosen_metrics == "PP Raffia-HDPE Film CFR S Asia":
+        selected_metrics = ["PP Raffia CFR S Asia Weekly","HDPE Film CFR S Asia Weekly"]
+    elif chosen_metrics == "PP Raffia CFR S Asia vs SEA":
+        selected_metrics = ["PP Raffia CFR SE Asia Weekly","PP Raffia CFR S Asia Weekly"]
+    elif chosen_metrics == "HDPE Film CFR S Asia vs SEA":
+        selected_metrics = ["HDPE Film CFR SE Asia Weekly","HDPE Film CFR S Asia Weekly"]
+    elif chosen_metrics == "PP Raffia SEA - Naptha FOB Gulf":
+        selected_metrics = ["PP Raffia CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
+    elif chosen_metrics == "LLDPE Butene SEA - Naptha FOB Gulf":
+        selected_metrics = ["LLDPE Butene CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
+    elif chosen_metrics == "HDPE IM SEA - Naptha FOB Gulf":
+        selected_metrics = ["HDPE B/Mldg CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
+    elif chosen_metrics == "HDPE Film SEA - Naptha FOB Gulf":
+        selected_metrics = ["HDPE Film CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
+    # elif chosen_metrics == "":
+    #     selected_metrics = [""]
+
+    filtered_df = df.loc[
+    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
+                ["Date"] + selected_metrics]
+    return filtered_df
+
+MARGIN_ON_NAPTHA = "Naphtha FOB Arab Gulf"
+MARGIN_OPTIONS = ["PP Raffia CFR SE Asia Weekly", "PP Inj CFR SE Asia Weekly", "LLDPE Butene CFR SE Asia Weekly",
+                  "HDPE B/Mldg CFR SE Asia Weekly", "HDPE Film CFR SE Asia Weekly"]
+
+def return_filtered_margin_df(df,date_from, date_to,selected_metrics):
+    filtered_df = (df.loc[
+    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
+                ["Date", MARGIN_ON_NAPTHA] + selected_metrics]).dropna().copy()
+    
+    # Create a separate DataFrame for the differences
+    margin_df = pd.DataFrame()
+    margin_df["Date"] = filtered_df["Date"]
+
+    # Direct vector subtraction for each selected metric
+    for metric in selected_metrics:
+        margin_df[f"Margin {metric}"] = (filtered_df[metric] - filtered_df[MARGIN_ON_NAPTHA])
+    
+    # Merge the raw data and difference data on the Date column
+    combined_df = pd.merge(filtered_df, margin_df, on="Date", how="inner")
+
+    return filtered_df,margin_df, combined_df
+
+def draw_line_charts(df, title="Trends Over Time"):
+    # Dynamically get all columns except 'Date' as metrics
+    metrics = [col for col in df.columns if col != "Date"]
+
+    # Guard clause if there are no metric columns left to plot
+    if not metrics:
+        return None
+    # Transform wide data to long format for Plotly Express
+    df_melted = df.melt(id_vars=["Date"],value_vars=metrics,var_name="Metric",value_name="Value",)
+    
+    # Generate the chart
+    fig = px.line(
+        df_melted,
+        x="Date",
+        y="Value",
+        color="Metric",
+        title=title,
+        template="plotly_white",
+    )
+
+    # Clean up aesthetics for Streamlit layout
+    fig.update_layout(
+        hovermode="x unified",
+        xaxis_title="Date",
+        yaxis_title="Value",
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1
+        ),
+    )
+    fig.update_traces(connectgaps=True)
+    return fig
+
+def mi_table(df, chosen_metrics=""):
+    # Get all columns that are NOT the Date column
+    metric_cols = [col for col in df.columns if col != "Date"]
+
+    if chosen_metrics == "":
+        display_df = df.dropna().copy()
+        display_df_formatted = display_df
+    elif chosen_metrics == "Custom Metrics":
+        # Drop rows where ALL metric columns are NaN/None
+        display_df = df.dropna(subset=metric_cols, how="all")
+
+        # Replace any remaining isolated NaNs with '-' and format the Date nicely
+        display_df_formatted = display_df.copy()
+        display_df_formatted[metric_cols] = display_df_formatted[metric_cols].fillna("-")
+    
+    else:
+        display_df = df.dropna().copy()
+        display_df["Difference"] = display_df[metric_cols[0]] - display_df[metric_cols[1]]
+        display_df_formatted = display_df
+    
+    # Format Date column to a cleaner string format (optional, e.g., DD/MM/YYYY)
+    if pd.api.types.is_datetime64_any_dtype(display_df_formatted["Date"]):
+        display_df_formatted["Date"] = display_df_formatted["Date"].dt.strftime("%d/%m/%Y")
+
+    # st.write(display_df_formatted)
+    render_excel_pivot(display_df_formatted,key="mi_table")

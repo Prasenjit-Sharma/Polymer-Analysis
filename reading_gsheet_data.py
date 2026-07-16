@@ -271,4 +271,25 @@ class read_data():
         df["Date To"] = pd.to_datetime(df["Date To"],format="mixed").dt.date
         return df
 
+    @st.cache_data(ttl=3600)
+    def read_mi_data():
+        spreadsheet_url = st.secrets["intelligence"]["MARKET_INTELLIGENCE_URL"]
+        spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
+        worksheet = spreadsheet.worksheet("Platts Benchmark Prices")
+        platts_df = pd.DataFrame(worksheet.get_all_records())
+        # Ensure Date is datetime
+        platts_df["Date"] = pd.to_datetime(platts_df["Date"])
+        # Ensure Rest Data is numeric
+        columns = [col for col in platts_df.columns if col != "Date"]
+        for col in columns:
+            # If columns contain string formatting (like commas), clean them first
+            if platts_df[col].dtype == "object":
+                platts_df[col] = (
+                    platts_df[col]
+                    .astype(str)
+                    .str.replace(",", "", regex=False)
+                    .str.strip()
+                )
 
+            platts_df[col] = pd.to_numeric(platts_df[col], errors="coerce")
+        return platts_df
