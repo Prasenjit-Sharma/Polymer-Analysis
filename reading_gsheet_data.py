@@ -275,6 +275,8 @@ class read_data():
     def read_mi_data():
         spreadsheet_url = st.secrets["intelligence"]["MARKET_INTELLIGENCE_URL"]
         spreadsheet, sheet_names = read_data.get_sheet_names(spreadsheet_url)
+
+        # Platts Data
         worksheet = spreadsheet.worksheet("Platts Benchmark Prices")
         platts_df = pd.DataFrame(worksheet.get_all_records())
         # Ensure Date is datetime
@@ -292,4 +294,9 @@ class read_data():
                 )
 
             platts_df[col] = pd.to_numeric(platts_df[col], errors="coerce")
-        return platts_df
+
+        # Masters 
+        worksheet = spreadsheet.worksheet("Masters")
+        mi_masters_df = pd.DataFrame(worksheet.get_all_records())
+        
+        return platts_df, mi_masters_df

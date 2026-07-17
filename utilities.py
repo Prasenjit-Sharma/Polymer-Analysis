@@ -1,4 +1,5 @@
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+import numpy as np
 import pandas as pd
 import plotly.express as px
 from io import BytesIO
@@ -10,6 +11,7 @@ from reading_gsheet_data import read_data
 import time
 from datetime import datetime
 from tvDatafeed import TvDatafeed, Interval
+from sklearn.linear_model import LinearRegression
 
 FISCAL_START = 4
 
@@ -1249,65 +1251,8 @@ def get_discounts(selected_group_df, selected_family, selected_qty, price_date,
     st.session_state.pricing_df = pricing_df.copy()
 
 # MARKET INTELLIGENCE
-METRIC_OPTIONS = ["PP Raffia-LLDPE Butene CFR SEA", "PP Raffia-HDPE Film CFR S Asia","PP Raffia-HDPE Film CFR SEA",
-                  "PP Raffia CFR S Asia vs SEA","HDPE Film CFR S Asia vs SEA",
-                  "PP Raffia SEA - Naptha FOB Gulf","LLDPE Butene SEA - Naptha FOB Gulf",
-                  "HDPE IM SEA - Naptha FOB Gulf", "HDPE Film SEA - Naptha FOB Gulf",
-                  "Custom Metrics"]
 
-def return_filtered_metric_df(df,date_from, date_to,chosen_metrics):
-
-    if chosen_metrics == "Custom Metrics":
-        chart_options = df.columns.drop("Date").tolist()
-        selected_metrics = st.multiselect("Select Custom Metrics",chart_options)
-    elif chosen_metrics == "PP Raffia-LLDPE Butene CFR SEA":
-        selected_metrics = ["PP Raffia CFR SE Asia Weekly","LLDPE Butene CFR SE Asia Weekly"]
-    elif chosen_metrics == "PP Raffia-HDPE Film CFR SEA":
-        selected_metrics = ["PP Raffia CFR SE Asia Weekly","HDPE Film CFR SE Asia Weekly"]
-    elif chosen_metrics == "PP Raffia-HDPE Film CFR S Asia":
-        selected_metrics = ["PP Raffia CFR S Asia Weekly","HDPE Film CFR S Asia Weekly"]
-    elif chosen_metrics == "PP Raffia CFR S Asia vs SEA":
-        selected_metrics = ["PP Raffia CFR SE Asia Weekly","PP Raffia CFR S Asia Weekly"]
-    elif chosen_metrics == "HDPE Film CFR S Asia vs SEA":
-        selected_metrics = ["HDPE Film CFR SE Asia Weekly","HDPE Film CFR S Asia Weekly"]
-    elif chosen_metrics == "PP Raffia SEA - Naptha FOB Gulf":
-        selected_metrics = ["PP Raffia CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
-    elif chosen_metrics == "LLDPE Butene SEA - Naptha FOB Gulf":
-        selected_metrics = ["LLDPE Butene CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
-    elif chosen_metrics == "HDPE IM SEA - Naptha FOB Gulf":
-        selected_metrics = ["HDPE B/Mldg CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
-    elif chosen_metrics == "HDPE Film SEA - Naptha FOB Gulf":
-        selected_metrics = ["HDPE Film CFR SE Asia Weekly", "Naphtha FOB Arab Gulf"]
-    # elif chosen_metrics == "":
-    #     selected_metrics = [""]
-
-    filtered_df = df.loc[
-    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
-                ["Date"] + selected_metrics]
-    return filtered_df
-
-MARGIN_ON_NAPTHA = "Naphtha FOB Arab Gulf"
-MARGIN_OPTIONS = ["PP Raffia CFR SE Asia Weekly", "PP Inj CFR SE Asia Weekly", "LLDPE Butene CFR SE Asia Weekly",
-                  "HDPE B/Mldg CFR SE Asia Weekly", "HDPE Film CFR SE Asia Weekly"]
-
-def return_filtered_margin_df(df,date_from, date_to,selected_metrics):
-    filtered_df = (df.loc[
-    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
-                ["Date", MARGIN_ON_NAPTHA] + selected_metrics]).dropna().copy()
-    
-    # Create a separate DataFrame for the differences
-    margin_df = pd.DataFrame()
-    margin_df["Date"] = filtered_df["Date"]
-
-    # Direct vector subtraction for each selected metric
-    for metric in selected_metrics:
-        margin_df[f"Margin {metric}"] = (filtered_df[metric] - filtered_df[MARGIN_ON_NAPTHA])
-    
-    # Merge the raw data and difference data on the Date column
-    combined_df = pd.merge(filtered_df, margin_df, on="Date", how="inner")
-
-    return filtered_df,margin_df, combined_df
-
+# Helper Functions
 def draw_line_charts(df, title="Trends Over Time"):
     # Dynamically get all columns except 'Date' as metrics
     metrics = [col for col in df.columns if col != "Date"]
@@ -1344,10 +1289,11 @@ def mi_table(df, chosen_metrics=""):
     # Get all columns that are NOT the Date column
     metric_cols = [col for col in df.columns if col != "Date"]
 
+
     if chosen_metrics == "":
         display_df = df.dropna().copy()
         display_df_formatted = display_df
-    elif chosen_metrics == "Custom Metrics":
+    elif len(metric_cols) != 2:
         # Drop rows where ALL metric columns are NaN/None
         display_df = df.dropna(subset=metric_cols, how="all")
 
@@ -1360,9 +1306,804 @@ def mi_table(df, chosen_metrics=""):
         display_df["Difference"] = display_df[metric_cols[0]] - display_df[metric_cols[1]]
         display_df_formatted = display_df
     
+    display_df_formatted = display_df_formatted.sort_values(by="Date", ascending=False)
     # Format Date column to a cleaner string format (optional, e.g., DD/MM/YYYY)
     if pd.api.types.is_datetime64_any_dtype(display_df_formatted["Date"]):
         display_df_formatted["Date"] = display_df_formatted["Date"].dt.strftime("%d/%m/%Y")
 
+    
     # st.write(display_df_formatted)
-    render_excel_pivot(display_df_formatted,key="mi_table")
+    render_excel_pivot(display_df_formatted,key=f"mi_table {np.random.randint(1, 1001)}")
+
+# Historical Trend
+def return_filtered_metric_df(df,mi_masters_df,date_from, date_to,chosen_metrics):
+
+    if chosen_metrics == "Custom Metrics":
+        chart_options = df.columns.drop("Date").tolist()
+        selected_metrics = st.multiselect("Select Custom Metrics",chart_options,default=chart_options[14])
+        
+    else:
+        match = mi_masters_df.loc[mi_masters_df["Metric Name"] == chosen_metrics,"Metrics"]
+
+        if not match.empty:
+            selected_metrics = [m.strip().strip('"').strip("'")
+                                for m in match.iloc[0].split(",")]
+        else:
+            selected_metrics = []
+    
+
+    filtered_df = df.loc[
+    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
+                ["Date"] + selected_metrics]
+    return filtered_df
+
+# Moving Average Tab
+def return_filtered_ma_df(df,date_from, date_to,chosen_metrics):
+    df = df[["Date", chosen_metrics]].dropna().copy()
+    df = df.sort_values("Date").set_index("Date")
+
+    # Moving Averages
+    df["MA 90"] = df[chosen_metrics].rolling("90D").mean()
+    df["MA 180"] = df[chosen_metrics].rolling("180D").mean()
+    df["MA 365"] = df[chosen_metrics].rolling("365D").mean()
+
+    df = df.reset_index()
+    filtered_df = df.loc[(df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to))]
+    
+    return filtered_df
+
+def moving_average_summary(plot_df, chosen_metrics):
+
+    if plot_df.empty:
+        st.warning("No data available for the selected period.")
+        return
+
+    latest = plot_df.iloc[-1]
+
+    current = latest[chosen_metrics]
+    ma90 = latest["MA 90"]
+    ma180 = latest["MA 180"]
+    ma365 = latest["MA 365"]
+
+    # --------------------------------------------------------
+    # Distance from Moving Averages
+    # --------------------------------------------------------
+
+    d90 = current - ma90
+    d180 = current - ma180
+    d365 = current - ma365
+
+    p90 = d90 / ma90 * 100
+    p180 = d180 / ma180 * 100
+    p365 = d365 / ma365 * 100
+
+    # --------------------------------------------------------
+    # Trend Score (0-100)
+    # --------------------------------------------------------
+
+    score = 50
+
+    # Position relative to MA
+    score += 10 if current > ma90 else -10
+    score += 15 if current > ma180 else -15
+    score += 25 if current > ma365 else -25
+
+    # Distance from MA365
+    score += min(abs(p365), 20)
+
+    if current < ma365:
+        score -= min(abs(p365), 20)
+
+    score = max(0, min(score, 100))
+
+    # --------------------------------------------------------
+    # Trend Classification
+    # --------------------------------------------------------
+
+    if score >= 85:
+        condition = "🟢 Strong Bullish"
+
+    elif score >= 70:
+        condition = "🟢 Bullish"
+
+    elif score >= 55:
+        condition = "🟡 Mildly Bullish"
+
+    elif score >= 45:
+        condition = "🟡 Neutral"
+
+    elif score >= 30:
+        condition = "🟠 Mildly Bearish"
+
+    elif score >= 15:
+        condition = "🔴 Bearish"
+
+    else:
+        condition = "🔴 Strong Bearish"
+
+    # --------------------------------------------------------
+    # Executive Interpretation
+    # --------------------------------------------------------
+
+    if current > ma90 > ma180 > ma365:
+        interpretation = (
+            "The commodity is trading above all major moving averages, "
+            "indicating a sustained upward trend across short-, medium- and "
+            "long-term time horizons."
+        )
+
+    elif current < ma90 < ma180 < ma365:
+        interpretation = (
+            "The commodity is trading below all major moving averages, "
+            "indicating persistent weakness and a well-established downward trend."
+        )
+
+    else:
+        interpretation = (
+            "The moving averages are not perfectly aligned, suggesting that "
+            "the market is either consolidating or transitioning between trends."
+        )
+
+    st.info(f"""
+        ### Executive Summary
+
+        **Market Condition:** **{condition}**
+
+        **Trend Strength Score:** **{score:.0f}/100**
+
+        {interpretation}
+
+        The latest **{chosen_metrics}** price is **{current:.1f} USD/MT**.
+
+        Compared with its historical trend:
+
+        - **90-Day Average:** {ma90:.1f} USD/MT (**{abs(d90):.1f} USD/MT {'above' if d90>=0 else 'below'}**, {abs(p90):.1f}%)
+        - **180-Day Average:** {ma180:.1f} USD/MT (**{abs(d180):.1f} USD/MT {'above' if d180>=0 else 'below'}**, {abs(p180):.1f}%)
+        - **365-Day Average:** {ma365:.1f} USD/MT (**{abs(d365):.1f} USD/MT {'above' if d365>=0 else 'below'}**, {abs(p365):.1f}%)
+
+        """)
+
+# Correlation Analysis
+def correlation_heatmap(df, title="Correlation Heatmap"):
+    # Keep only numeric columns
+    corr = df.select_dtypes(include="number").corr()
+
+    fig = px.imshow(corr,text_auto=".2f",color_continuous_scale="RdBu_r",zmin=-1,zmax=1,
+            aspect="auto",title=title,)
+
+    fig.update_layout(height=600,margin=dict(l=20, r=20, t=60, b=20),
+            coloraxis_colorbar=dict(title="Correlation"))
+    fig.update_xaxes(side="bottom")
+
+    return fig
+
+# Price Driver Analysis
+def price_driver_analysis(df, feedstocks, polymers, date_col="Date"):
+
+    results = []
+
+    working_df = df.copy()
+
+    if date_col in working_df.columns:
+        working_df = working_df.drop(columns=date_col)
+
+    for feedstock in feedstocks:
+
+        for polymer in polymers:
+
+            temp = working_df[[feedstock, polymer]].dropna()
+
+            if len(temp) < 20:
+                continue
+
+            X = temp[[feedstock]]
+            y = temp[polymer]
+
+            model = LinearRegression()
+            model.fit(X, y)
+
+            beta = model.coef_[0]
+            intercept = model.intercept_
+            r2 = model.score(X, y)
+            corr = temp.corr().iloc[0, 1]
+
+            results.append({
+                "Feedstock": feedstock,
+                "Polymer": polymer,
+                "Impact of $10 Increase": round(beta * 10, 1),
+                # "Beta ($/$)": round(beta, 2),
+                "Correlation": round(corr, 3),
+                "R²": round(r2, 3),
+                # "Intercept": round(intercept, 1)
+            })
+
+    result_df = (pd.DataFrame(results))
+    return result_df
+
+# Relative Value Analysis
+def spread_analysis(df, commodity, benchmark, lookback_years=3):
+
+    # -------------------------
+    # Prepare Data
+    # -------------------------
+    spread_df = (
+        df[["Date", commodity, benchmark]]
+        .dropna()
+        .sort_values("Date")
+        .copy()
+    )
+
+    spread_df["Spread"] = spread_df[commodity] - spread_df[benchmark]
+
+    latest_date = spread_df["Date"].max()
+    cutoff = latest_date - pd.DateOffset(years=lookback_years)
+
+    stats_df = spread_df[spread_df["Date"] >= cutoff].copy()
+
+    # Rolling moving averages (entire history for chart)
+    spread_df = spread_df.set_index("Date")
+
+    spread_df["MA 90"] = spread_df["Spread"].rolling("90D").mean()
+    spread_df["MA 180"] = spread_df["Spread"].rolling("180D").mean()
+    spread_df["MA 365"] = spread_df["Spread"].rolling("365D").mean()
+
+    spread_df = spread_df.reset_index()
+
+    # -------------------------
+    # Statistics (Recent Regime)
+    # -------------------------
+    current = stats_df["Spread"].iloc[-1]
+    average = stats_df["Spread"].mean()
+    median = stats_df["Spread"].median()
+    minimum = stats_df["Spread"].min()
+    maximum = stats_df["Spread"].max()
+
+    std = stats_df["Spread"].std()
+
+    # z_score = 0 if std == 0 else (current - average) / std
+
+    percentile = (
+        stats_df["Spread"]
+        .rank(pct=True)
+        .iloc[-1] * 100
+    )
+
+    # Interpretation
+    # if abs(z_score) < 1:
+    #     z_text = "well within its normal trading range."
+    # elif abs(z_score) < 2:
+    #     z_text = "moderately away from its recent average, but still within the range of normal market fluctuations."
+    # else:
+    #     z_text = "at an unusually extreme level compared with the recent market regime."
+
+    if percentile < 10:
+        p_text = "among the lowest spreads observed."
+    elif percentile < 25:
+        p_text = "below its typical trading range."
+    elif percentile <= 75:
+        p_text = "within its normal historical range."
+    elif percentile <= 90:
+        p_text = "above its typical trading range."
+    else:
+        p_text = "among the highest spreads observed."
+
+    st.info(
+        f"""
+        ### Executive Summary
+
+        The current spread between **{commodity}** and **{benchmark}** is **{current:.1f} USD/MT**.
+
+        This analysis compares today's spread with the **last {lookback_years} years**, providing a view of the **current market regime** rather than the full historical record.
+
+        - **Average Spread:** {average:.1f} USD/MT
+        - **Median Spread:** {median:.1f} USD/MT
+        - **Historical Range:** {minimum:.1f} to {maximum:.1f} USD/MT
+        - **Current Percentile:** {percentile:.0f}th percentile ({p_text})
+
+            """)
+
+    # -------------------------
+    # Spread Trend
+    # -------------------------
+    plot_df = spread_df.melt(
+        id_vars="Date",
+        value_vars=["Spread", "MA 90", "MA 180", "MA 365"],
+        var_name="Series",
+        value_name="Value"
+    )
+
+    fig = px.line(
+        plot_df,
+        x="Date",
+        y="Value",
+        color="Series",
+        title=f"Spread Analysis: {commodity} vs {benchmark}"
+    )
+
+    fig.update_layout(
+        xaxis_title="Date",
+        yaxis_title="Spread (USD/MT)",
+        hovermode="x unified",
+        legend_title=""
+    )
+
+    st.plotly_chart(fig, width='stretch')
+
+    # -------------------------
+    # Distribution (Recent Regime)
+    # -------------------------
+    hist = px.histogram(
+        stats_df,
+        x="Spread",
+        nbins=30,
+        marginal="box",
+        title=f"Spread Distribution (Last {lookback_years} Years)"
+    )
+
+    hist.update_layout(
+        xaxis_title="Spread (USD/MT)",
+        yaxis_title="Frequency"
+    )
+
+    st.plotly_chart(hist, width='stretch')
+
+    return spread_df
+
+# Market Dynamics
+def return_market_dynamics_df(df, date_from, date_to, commodity):
+
+    plot_df = df[["Date", commodity]].dropna().copy()
+
+    plot_df["Date"] = pd.to_datetime(plot_df["Date"])
+
+    plot_df = plot_df.sort_values("Date")
+
+    # --------------------------
+    # Daily Return (%)
+    # --------------------------
+
+    plot_df["Return"] = plot_df[commodity].pct_change() * 100
+
+    # --------------------------
+    # Rolling Volatility
+    # --------------------------
+
+    plot_df = plot_df.set_index("Date")
+
+    plot_df["Volatility 30D"] = (
+        plot_df["Return"]
+        .rolling("30D")
+        .std()
+    )
+
+    plot_df["Volatility 90D"] = (
+        plot_df["Return"]
+        .rolling("90D")
+        .std()
+    )
+
+    plot_df = plot_df.reset_index()
+
+    # =====================================================
+    # Calendar based Rate of Change (ROC)
+    # =====================================================
+
+    def calculate_roc(days):
+
+        current = plot_df[["Date", commodity]].rename(
+            columns={
+                "Date": "Current Date",
+                commodity: "Current Price"
+            }
+        )
+
+        history = plot_df[["Date", commodity]].rename(
+            columns={
+                "Date": "Past Date",
+                commodity: "Past Price"
+            }
+        )
+
+        current["Lookup Date"] = (
+            current["Current Date"] -
+            pd.Timedelta(days=days)
+        )
+
+        merged = pd.merge_asof(
+            current.sort_values("Lookup Date"),
+            history.sort_values("Past Date"),
+            left_on="Lookup Date",
+            right_on="Past Date",
+            direction="backward"
+        )
+
+        return (
+            (merged["Current Price"] /
+             merged["Past Price"] - 1)
+            * 100
+        )
+
+    plot_df["ROC 30D"] = calculate_roc(30)
+
+    plot_df["ROC 90D"] = calculate_roc(90)
+
+    # =====================================================
+    # Acceleration
+    # =====================================================
+
+    roc = plot_df[["Date", "ROC 30D"]].copy()
+
+    current = roc.rename(
+        columns={
+            "Date": "Current Date",
+            "ROC 30D": "Current ROC"
+        }
+    )
+
+    history = roc.rename(
+        columns={
+            "Date": "Past Date",
+            "ROC 30D": "Past ROC"
+        }
+    )
+
+    current["Lookup Date"] = (
+        current["Current Date"] -
+        pd.Timedelta(days=30)
+    )
+
+    merged = pd.merge_asof(
+        current.sort_values("Lookup Date"),
+        history.sort_values("Past Date"),
+        left_on="Lookup Date",
+        right_on="Past Date",
+        direction="backward"
+    )
+
+    plot_df["Acceleration"] = (
+        merged["Current ROC"] -
+        merged["Past ROC"]
+    )
+
+    # --------------------------
+
+    plot_df = plot_df.loc[
+        (plot_df["Date"] >= pd.to_datetime(date_from)) &
+        (plot_df["Date"] <= pd.to_datetime(date_to))
+    ]
+
+    return plot_df
+
+def market_dynamics_summary(plot_df, commodity):
+
+    latest = plot_df.iloc[-1]
+
+    current_price = latest[commodity]
+
+    vol = latest["Volatility 30D"]
+
+    roc = latest["ROC 30D"]
+
+    acceleration = latest["Acceleration"]
+
+    avg_vol = plot_df["Volatility 30D"].mean()
+
+    percentile = (
+        plot_df["Volatility 30D"]
+        .rank(pct=True)
+        .iloc[-1] * 100
+    )
+
+    # --------------------------------
+    # Volatility Regime
+    # --------------------------------
+
+    if percentile < 20:
+        regime = "Very Stable"
+        stability = 90
+
+    elif percentile < 40:
+        regime = "Stable"
+        stability = 75
+
+    elif percentile < 60:
+        regime = "Normal"
+        stability = 60
+
+    elif percentile < 80:
+        regime = "Elevated"
+        stability = 40
+
+    else:
+        regime = "Highly Volatile"
+        stability = 20
+
+    # --------------------------------
+    # Trend
+    # --------------------------------
+
+    if roc > 5:
+        trend = "Strong Bullish"
+
+    elif roc > 2:
+        trend = "Bullish"
+
+    elif roc > -2:
+        trend = "Neutral"
+
+    elif roc > -5:
+        trend = "Bearish"
+
+    else:
+        trend = "Strong Bearish"
+
+    # --------------------------------
+    # Momentum
+    # --------------------------------
+
+    if acceleration > 2:
+        accel = "Strengthening"
+
+    elif acceleration < -2:
+        accel = "Weakening"
+
+    else:
+        accel = "Stable"
+
+    # --------------------------------
+    # Market Dynamics Score
+    # --------------------------------
+
+    trend_score = min(max(roc + 50, 0), 100)
+
+    dynamics = (
+        trend_score * 0.45 +
+        stability * 0.35 +
+        (50 + acceleration * 5) * 0.20
+    )
+
+    dynamics = max(0, min(100, dynamics))
+
+    st.info(f"""
+        ### Executive Summary
+
+        ### Overall Market Dynamics : **{dynamics:.0f}/100**
+
+        **Trend:** {trend}
+
+        **Volatility Regime:** {regime}
+
+        **Momentum:** {accel}
+
+        The latest **{commodity}** price is **{current_price:.1f} USD/MT**.
+
+        The commodity has generated a **30-Day Rate of Change (ROC)** of **{roc:.2f}%**, indicating the overall direction and strength of the recent price movement.
+
+        Current **30-Day Volatility** is **{vol:.2f}%**, compared with a historical average of **{avg_vol:.2f}%**. This places current market volatility in the **{percentile:.0f}th percentile** of the selected period.
+
+        The **Acceleration** indicator is **{accel.lower()}**, suggesting that the rate of price movement is {'increasing' if acceleration > 0 else 'decreasing'}.
+
+        Overall, the market is characterized by a **{trend.lower()} trend**, **{regime.lower()} market conditions**, and **{accel.lower()} momentum**.
+        """)
+    
+def draw_market_dynamics(plot_df):
+
+    # ==========================
+    # Volatility Chart
+    # ==========================
+
+    fig_vol = px.line(
+        plot_df,
+        x="Date",
+        y=["Volatility 30D", "Volatility 90D"],
+        title="Rolling Volatility"
+    )
+
+    fig_vol.update_layout(
+        height=450,
+        hovermode="x unified",
+        legend_title="",
+        xaxis_title="",
+        yaxis_title="Volatility (%)"
+    )
+
+    # ==========================
+    # Momentum & Acceleration
+    # ==========================
+
+    fig_mom = px.line(
+        plot_df,
+        x="Date",
+        y=["ROC 30D", "ROC 90D", "Acceleration"],
+        title="Market Momentum"
+    )
+
+    fig_mom.update_layout(
+        height=450,
+        hovermode="x unified",
+        legend_title="",
+        xaxis_title="",
+        yaxis_title="ROC / Acceleration (%)"
+    )
+
+    return fig_vol, fig_mom
+
+# Seasonality Tab
+def return_seasonality_df(df, commodity):
+
+    plot_df = df[["Date", commodity]].dropna().copy()
+
+    plot_df["Date"] = pd.to_datetime(plot_df["Date"])
+
+    plot_df = plot_df.sort_values("Date")
+
+    # Month-end price
+    monthly = (plot_df.set_index("Date").resample("ME").last().reset_index())
+
+    # Monthly Return
+    monthly["Monthly Return"] = (monthly[commodity].pct_change() * 100)
+    monthly["Year"] = monthly["Date"].dt.year
+    monthly["Month"] = monthly["Date"].dt.month_name().str[:3]
+    month_order = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+    monthly["Month"] = pd.Categorical(monthly["Month"],categories=month_order,ordered=True)
+
+    # Summary Statistics
+
+    seasonality = (
+        monthly
+        .groupby("Month", observed=False)
+        .agg(
+            Average_Return=("Monthly Return","mean"),
+            Median_Return=("Monthly Return","median"),
+            Volatility=("Monthly Return","std"),
+            Positive_Months=("Monthly Return", lambda x: (x>0).sum()),
+            Observations=("Monthly Return","count")
+        )
+        .reset_index()
+    )
+
+    # Heatmap Data
+    heatmap = monthly.pivot_table(index="Year",columns="Month",values="Monthly Return")
+
+    return monthly, seasonality, heatmap
+
+def seasonality_summary(seasonality):
+
+    best = seasonality.loc[seasonality["Average_Return"].idxmax()]
+    worst = seasonality.loc[seasonality["Average_Return"].idxmin()]
+    volatile = seasonality.loc[seasonality["Volatility"].idxmax()]
+    consistent = seasonality.loc[(seasonality["Positive_Months"] / seasonality["Observations"]).idxmax()]
+
+    st.info(f"""
+        ### Executive Summary
+
+        Historically, **{best['Month']}** has been the strongest month, delivering an average return of **{best['Average_Return']:.2f}%**.
+
+        Conversely, **{worst['Month']}** has produced the weakest average performance with an average return of **{worst['Average_Return']:.2f}%**.
+
+        **{volatile['Month']}** exhibits the highest month-to-month volatility, indicating greater uncertainty during this period.
+
+        The most consistently positive month has been **{consistent['Month']}**, where prices increased in **{consistent['Positive_Months']} out of {consistent['Observations']}** years.
+
+        """)
+    
+def draw_seasonality(seasonality, heatmap):
+
+    # Average Monthly Return
+
+    fig_return = px.bar(seasonality,x="Month",y="Average_Return",title="Average Monthly Return")
+    fig_return.update_layout(xaxis_title="",yaxis_title="Average Return (%)")
+
+    # Monthly Volatility
+    fig_vol = px.bar(seasonality, x="Month", y="Volatility",title="Monthly Volatility")
+    fig_vol.update_layout(xaxis_title="",yaxis_title="Volatility (%)")
+
+    # Heatmap
+    fig_heat = px.imshow(heatmap,aspect="auto",color_continuous_scale="RdYlGn",title="Monthly Return Heatmap")
+    fig_heat.update_layout(xaxis_title="Month",yaxis_title="Year")
+
+    return fig_return, fig_vol, fig_heat
+
+# Margin Page - Calculation
+def return_filtered_margin_df(df, date_from, date_to, selected_margin_on, selected_metrics):
+    filtered_df = (df.loc[
+    (df["Date"] >= pd.to_datetime(date_from)) & (df["Date"] <= pd.to_datetime(date_to)),
+                ["Date", selected_margin_on] + selected_metrics]).dropna().copy()
+    
+    # Create a separate DataFrame for the differences
+    margin_df = pd.DataFrame()
+    margin_df["Date"] = filtered_df["Date"]
+
+    # Direct vector subtraction for each selected metric
+    for metric in selected_metrics:
+        margin_df[f"Margin {metric}"] = (filtered_df[metric] - filtered_df[selected_margin_on])
+    
+    # Merge the raw data and difference data on the Date column
+    combined_df = pd.merge(filtered_df, margin_df, on="Date", how="inner")
+
+    return filtered_df,margin_df, combined_df
+
+def executive_summary(df, date_from, date_to, commodity):
+    ma_df = return_filtered_ma_df(df, date_from, date_to, commodity)
+    md_df = return_market_dynamics_df(df, date_from, date_to, commodity)
+    monthly_df, seasonality_df, heatmap_df = return_seasonality_df(df,commodity)
+    
+    # Date
+    summary_date = ma_df["Date"].max()
+
+    # Latest Moving Average
+    latest_ma = ma_df.iloc[-1]
+    latest_md = md_df.iloc[-1]
+
+    # market dynamics
+    current_price = latest_ma[commodity]
+    ma90 = latest_ma["MA 90"]
+    ma365 = latest_ma["MA 365"]
+    roc = latest_md["ROC 30D"]
+    vol = latest_md["Volatility 30D"]
+    acc = latest_md["Acceleration"]
+
+    if current_price > ma90 > ma365:
+        trend = "Bullish"
+    elif current_price < ma90 < ma365:
+        trend = "Bearish"
+    else:
+        trend = "Neutral"
+    
+    if acc > 2:
+        momentum = "Strengthening"
+    elif acc < -2:
+        momentum = "Weakening"
+    else:
+        momentum = "Stable"
+    
+    avg_vol = md_df["Volatility 30D"].mean()
+
+    if vol > avg_vol*1.5:
+        regime = "Highly Volatile"
+    elif vol > avg_vol:
+        regime = "Elevated"
+    else:
+        regime = "Stable"
+    
+    today = datetime.today().strftime("%b")
+    month = seasonality_df.loc[seasonality_df["Month"] == today]
+    seasonality = "Positive"
+    if len(month):
+        if month.iloc[0]["Average_Return"] < 0:
+            seasonality = "Negative"
+
+    metrics = [
+        ("Data As Of", summary_date.strftime("%d %b %Y")),
+        ("Current Price", f"{current_price:.2f}"),
+        ("Trend", trend),
+        ("Momentum", momentum),
+        ("Volatility", regime),
+        ("Seasonality", seasonality),
+        # ("ROC (30D)", f"{roc:.2f}%"),
+        # ("Acceleration", f"{acc:.2f}%"),
+        # ("MA 90", f"{ma90:.2f}"),
+        # ("MA 365", f"{ma365:.2f}")
+    ]
+
+    for i in range(0, len(metrics), 3):
+        cols = st.columns(3)
+
+        for col, (label, value) in zip(cols, metrics[i:i+3]):
+            with col:
+                st.metric(label, value)
+    
+
+    st.info(f"""
+        ### Executive Summary
+
+        **{commodity}** is currently in a **{trend.lower()}** market.
+
+        Momentum is **{momentum.lower()}**, while market volatility is **{regime.lower()}**.
+
+        Historical seasonality for the current month is **{seasonality.lower()}**.
+
+        The latest price is **{current_price:.1f} USD/MT**, with a 30-Day ROC of **{roc:.2f}%**.
+
+        Overall, current market conditions suggest a **{trend.lower()} trend with {momentum.lower()} momentum**, while volatility should continue to be monitored.
+        """)
