@@ -1444,24 +1444,23 @@ def moving_average_summary(plot_df, chosen_metrics):
             "the market is either consolidating or transitioning between trends."
         )
 
-    st.info(f"""
-        ### Executive Summary
+    with st.expander(":material/search_insights: Insights"):
+        st.info(f"""
+            **Market Condition:** **{condition}**
 
-        **Market Condition:** **{condition}**
+            **Trend Strength Score:** **{score:.0f}/100**
 
-        **Trend Strength Score:** **{score:.0f}/100**
+            {interpretation}
 
-        {interpretation}
+            The latest **{chosen_metrics}** price is **{current:.1f} USD/MT**.
 
-        The latest **{chosen_metrics}** price is **{current:.1f} USD/MT**.
+            Compared with its historical trend:
 
-        Compared with its historical trend:
+            - **90-Day Average:** {ma90:.1f} USD/MT (**{abs(d90):.1f} USD/MT {'above' if d90>=0 else 'below'}**, {abs(p90):.1f}%)
+            - **180-Day Average:** {ma180:.1f} USD/MT (**{abs(d180):.1f} USD/MT {'above' if d180>=0 else 'below'}**, {abs(p180):.1f}%)
+            - **365-Day Average:** {ma365:.1f} USD/MT (**{abs(d365):.1f} USD/MT {'above' if d365>=0 else 'below'}**, {abs(p365):.1f}%)
 
-        - **90-Day Average:** {ma90:.1f} USD/MT (**{abs(d90):.1f} USD/MT {'above' if d90>=0 else 'below'}**, {abs(p90):.1f}%)
-        - **180-Day Average:** {ma180:.1f} USD/MT (**{abs(d180):.1f} USD/MT {'above' if d180>=0 else 'below'}**, {abs(p180):.1f}%)
-        - **365-Day Average:** {ma365:.1f} USD/MT (**{abs(d365):.1f} USD/MT {'above' if d365>=0 else 'below'}**, {abs(p365):.1f}%)
-
-        """)
+            """)
 
 # Correlation Analysis
 def correlation_heatmap(df, title="Correlation Heatmap"):
@@ -1587,20 +1586,19 @@ def spread_analysis(df, commodity, benchmark, lookback_years=3):
     else:
         p_text = "among the highest spreads observed."
 
-    st.info(
-        f"""
-        ### Executive Summary
+    with st.expander(":material/search_insights: Insights"):
+        st.info(
+            f"""
+            The current spread between **{commodity}** and **{benchmark}** is **{current:.1f} USD/MT**.
 
-        The current spread between **{commodity}** and **{benchmark}** is **{current:.1f} USD/MT**.
+            This analysis compares today's spread with the **last {lookback_years} years**, providing a view of the **current market regime** rather than the full historical record.
 
-        This analysis compares today's spread with the **last {lookback_years} years**, providing a view of the **current market regime** rather than the full historical record.
+            - **Average Spread:** {average:.1f} USD/MT
+            - **Median Spread:** {median:.1f} USD/MT
+            - **Historical Range:** {minimum:.1f} to {maximum:.1f} USD/MT
+            - **Current Percentile:** {percentile:.0f}th percentile ({p_text})
 
-        - **Average Spread:** {average:.1f} USD/MT
-        - **Median Spread:** {median:.1f} USD/MT
-        - **Historical Range:** {minimum:.1f} to {maximum:.1f} USD/MT
-        - **Current Percentile:** {percentile:.0f}th percentile ({p_text})
-
-            """)
+                """)
 
     # -------------------------
     # Spread Trend
@@ -1864,27 +1862,27 @@ def market_dynamics_summary(plot_df, commodity):
 
     dynamics = max(0, min(100, dynamics))
 
-    st.info(f"""
-        ### Executive Summary
+    with st.expander(":material/search_insights: Insights"):
+        st.info(f"""
 
-        ### Overall Market Dynamics : **{dynamics:.0f}/100**
+            ### Overall Market Dynamics : **{dynamics:.0f}/100**
 
-        **Trend:** {trend}
+            **Trend:** {trend}
 
-        **Volatility Regime:** {regime}
+            **Volatility Regime:** {regime}
 
-        **Momentum:** {accel}
+            **Momentum:** {accel}
 
-        The latest **{commodity}** price is **{current_price:.1f} USD/MT**.
+            The latest **{commodity}** price is **{current_price:.1f} USD/MT**.
 
-        The commodity has generated a **30-Day Rate of Change (ROC)** of **{roc:.2f}%**, indicating the overall direction and strength of the recent price movement.
+            The commodity has generated a **30-Day Rate of Change (ROC)** of **{roc:.2f}%**, indicating the overall direction and strength of the recent price movement.
 
-        Current **30-Day Volatility** is **{vol:.2f}%**, compared with a historical average of **{avg_vol:.2f}%**. This places current market volatility in the **{percentile:.0f}th percentile** of the selected period.
+            Current **30-Day Volatility** is **{vol:.2f}%**, compared with a historical average of **{avg_vol:.2f}%**. This places current market volatility in the **{percentile:.0f}th percentile** of the selected period.
 
-        The **Acceleration** indicator is **{accel.lower()}**, suggesting that the rate of price movement is {'increasing' if acceleration > 0 else 'decreasing'}.
+            The **Acceleration** indicator is **{accel.lower()}**, suggesting that the rate of price movement is {'increasing' if acceleration > 0 else 'decreasing'}.
 
-        Overall, the market is characterized by a **{trend.lower()} trend**, **{regime.lower()} market conditions**, and **{accel.lower()} momentum**.
-        """)
+            Overall, the market is characterized by a **{trend.lower()} trend**, **{regime.lower()} market conditions**, and **{accel.lower()} momentum**.
+            """)
     
 def draw_market_dynamics(plot_df):
 
@@ -1974,18 +1972,17 @@ def seasonality_summary(seasonality):
     volatile = seasonality.loc[seasonality["Volatility"].idxmax()]
     consistent = seasonality.loc[(seasonality["Positive_Months"] / seasonality["Observations"]).idxmax()]
 
-    st.info(f"""
-        ### Executive Summary
+    with st.expander(":material/search_insights: Insights"):
+        st.info(f"""
+            Historically, **{best['Month']}** has been the strongest month, delivering an average return of **{best['Average_Return']:.2f}%**.
 
-        Historically, **{best['Month']}** has been the strongest month, delivering an average return of **{best['Average_Return']:.2f}%**.
+            Conversely, **{worst['Month']}** has produced the weakest average performance with an average return of **{worst['Average_Return']:.2f}%**.
 
-        Conversely, **{worst['Month']}** has produced the weakest average performance with an average return of **{worst['Average_Return']:.2f}%**.
+            **{volatile['Month']}** exhibits the highest month-to-month volatility, indicating greater uncertainty during this period.
 
-        **{volatile['Month']}** exhibits the highest month-to-month volatility, indicating greater uncertainty during this period.
+            The most consistently positive month has been **{consistent['Month']}**, where prices increased in **{consistent['Positive_Months']} out of {consistent['Observations']}** years.
 
-        The most consistently positive month has been **{consistent['Month']}**, where prices increased in **{consistent['Positive_Months']} out of {consistent['Observations']}** years.
-
-        """)
+            """)
     
 def draw_seasonality(seasonality, heatmap):
 
@@ -2023,6 +2020,7 @@ def return_filtered_margin_df(df, date_from, date_to, selected_margin_on, select
 
     return filtered_df,margin_df, combined_df
 
+# Tab Executive Summary
 def executive_summary(df, date_from, date_to, commodity):
     ma_df = return_filtered_ma_df(df, date_from, date_to, commodity)
     md_df = return_market_dynamics_df(df, date_from, date_to, commodity)
@@ -2103,7 +2101,7 @@ def executive_summary(df, date_from, date_to, commodity):
 
         Historical seasonality for the current month is **{seasonality.lower()}**.
 
-        The latest price is **{current_price:.1f} USD/MT**, with a 30-Day ROC of **{roc:.2f}%**.
+        The latest price is **{current_price:.1f} USD/MT**, with a 30-Day Rate of Change(ROC) of **{roc:.2f}%**.
 
         Overall, current market conditions suggest a **{trend.lower()} trend with {momentum.lower()} momentum**, while volatility should continue to be monitored.
         """)
