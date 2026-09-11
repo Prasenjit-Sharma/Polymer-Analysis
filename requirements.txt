@@ -10,3 +10,4 @@ tradingview_datafeed==2.1.1
 streamlit-aggrid==1.2.1.post2
 xlsxwriter==3.2.9
 scikit-learn==1.5.2
+streamlit-calendar
